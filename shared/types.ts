@@ -160,7 +160,8 @@ export const PROFILE_PRESETS: ProfilePreset[] = [
   },
 ];
 
-export const DEFAULT_PROFILE_AXES: AxisPair[] = PROFILE_PRESETS[0].axes;
+export const DEFAULT_PROFILE_AXES: AxisPair[] =
+  PROFILE_PRESETS.find((p) => p.id === "storyteller")!.axes;
 
 export type ScoringMode = "symmetric" | "generous" | "risky";
 
