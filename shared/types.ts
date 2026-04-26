@@ -37,13 +37,18 @@ export type Phase = "lobby" | "round" | "reveal" | "ended";
 
 export interface PublicPlayer {
   id: string;
+  /** During round phase, this is the anonymous label for opponents. Reveal/ended/lobby show real names. */
   name: string;
+  /** Real name. Only present when the viewer is allowed to see it (self always; others only at reveal/ended). */
+  realName?: string;
   connected: boolean;
   isHost: boolean;
   score: number;
   lastRoundDelta: number;
   /** True when this is another player and the current viewer should not see their score. */
   hideScore: boolean;
+  /** True if this player is being shown anonymously (opponent during round phase). */
+  anonymous: boolean;
 }
 
 export interface PublicClue {

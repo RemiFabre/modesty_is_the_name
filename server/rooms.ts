@@ -42,6 +42,41 @@ export interface Round {
   clues: Map<string, FullClue>; // playerId -> Clue (with intended)
   guesses: Map<string, Map<string, string[]>>; // guesserId -> targetId -> picks
   guessStartedAt: Map<string, Map<string, number>>; // guesserId -> targetId -> ts
+  /** Anonymous labels assigned to each player for this round. */
+  labels: Map<string, string>;
+}
+
+const ANIMAL_LABELS = [
+  "Fox",
+  "Wolf",
+  "Owl",
+  "Bear",
+  "Hawk",
+  "Stag",
+  "Lynx",
+  "Otter",
+  "Heron",
+  "Raven",
+  "Boar",
+  "Hare",
+];
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function assignLabels(players: Player[]): Map<string, string> {
+  const shuffled = shuffle(ANIMAL_LABELS);
+  const labels = new Map<string, string>();
+  players.forEach((p, i) => {
+    labels.set(p.id, shuffled[i % shuffled.length]);
+  });
+  return labels;
 }
 
 export interface Room {
@@ -191,6 +226,7 @@ function newRound(room: Room, number: number): Round {
     clues: new Map(),
     guesses: new Map(),
     guessStartedAt: new Map(),
+    labels: assignLabels(room.players),
   };
 }
 
@@ -449,20 +485,29 @@ export function viewFor(room: Room, playerId: string): PublicState {
     };
   }
 
+  const isAnonRound = room.phase === "round" && room.round !== null;
+  const labels = room.round?.labels;
+
   return {
     phase: room.phase,
     roomCode: room.code,
     settings: room.settings,
-    players: room.players.map((p) => ({
-      id: p.id,
-      name: p.name,
-      connected: p.socketId !== null,
-      isHost: p.isHost,
-      score: p.id === playerId || showOthersScores ? p.score : 0,
-      lastRoundDelta:
-        p.id === playerId || showOthersScores ? p.lastRoundDelta : 0,
-      hideScore: !(p.id === playerId || showOthersScores),
-    })),
+    players: room.players.map((p) => {
+      const isMe = p.id === playerId;
+      const displayName =
+        isAnonRound && !isMe ? labels?.get(p.id) ?? p.name : p.name;
+      return {
+        id: p.id,
+        name: displayName,
+        realName: showOthersScores || isMe ? p.name : undefined,
+        connected: p.socketId !== null,
+        isHost: p.isHost,
+        score: isMe || showOthersScores ? p.score : 0,
+        lastRoundDelta: isMe || showOthersScores ? p.lastRoundDelta : 0,
+        hideScore: !(isMe || showOthersScores),
+        anonymous: isAnonRound && !isMe,
+      };
+    }),
     myPlayerId: playerId,
     isHost: me?.isHost ?? false,
     me: publicMe,
