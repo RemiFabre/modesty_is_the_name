@@ -56,6 +56,12 @@ export interface Player {
   clueHistory: string[];
   /** Per-target per-axis correctness for THIS round (consumed at next round start). */
   hitsThisRound: Map<string, boolean[]>;
+  /** Score breakdown — accumulates over the game. score = sum of these. */
+  wordScoreAsGuesser: number;
+  wordScoreAsTarget: number;
+  profileScoreAsGuesser: number;
+  profileScoreAsTarget: number;
+  accuracyBonus: number;
 }
 
 export interface Round {
@@ -194,6 +200,11 @@ function makePlayer(name: string, isHost: boolean, bankSeconds: number): Player 
     profile: [],
     clueHistory: [],
     hitsThisRound: new Map(),
+    wordScoreAsGuesser: 0,
+    wordScoreAsTarget: 0,
+    profileScoreAsGuesser: 0,
+    profileScoreAsTarget: 0,
+    accuracyBonus: 0,
   };
 }
 
@@ -569,8 +580,10 @@ function tryResolveRound(room: Room): void {
       const target = room.players.find((p) => p.id === targetId)!;
       guesser.score += delta;
       guesser.lastRoundDelta += delta;
+      guesser.wordScoreAsGuesser += delta;
       target.score += delta;
       target.lastRoundDelta += delta;
+      target.wordScoreAsTarget += delta;
 
       // Profile scoring: per-axis +1 symmetric to both guesser and target.
       const axesGuess = profileInner?.get(targetId);
@@ -585,8 +598,10 @@ function tryResolveRound(room: Room): void {
         guesser.hitsThisRound.set(targetId, axisHits);
         guesser.score += axisCorrect;
         guesser.lastRoundDelta += axisCorrect;
+        guesser.profileScoreAsGuesser += axisCorrect;
         target.score += axisCorrect;
         target.lastRoundDelta += axisCorrect;
+        target.profileScoreAsTarget += axisCorrect;
       }
     }
   }
@@ -628,6 +643,7 @@ function applyPublicAccuracyBonus(room: Room): void {
     const bonus = matches * room.settings.publicAccuracyBonus;
     target.score += bonus;
     target.lastRoundDelta += bonus;
+    target.accuracyBonus += bonus;
   }
 }
 
@@ -793,6 +809,13 @@ export function viewFor(room: Room, playerId: string): PublicState {
         lastRoundDelta: p.lastRoundDelta,
         hideScore: false,
         anonymous: isAnonRound && !isMe,
+        breakdown: {
+          wordGuesser: p.wordScoreAsGuesser,
+          wordTarget: p.wordScoreAsTarget,
+          profileGuesser: p.profileScoreAsGuesser,
+          profileTarget: p.profileScoreAsTarget,
+          accuracyBonus: p.accuracyBonus,
+        },
       };
     }),
     myPlayerId: playerId,
@@ -812,11 +835,14 @@ function computeAccuracy(room: Room): ProfileAccuracy[] {
   return room.players.map((target) => {
     const sums = room.profileGuessSums.get(target.id);
     const samples = room.profileGuessSamples.get(target.id) ?? 0;
+    const rawPublic: (number | null)[] = new Array(numAxes).fill(null);
     const roundedPublic: (number | null)[] = new Array(numAxes).fill(null);
     const matches: boolean[] = new Array(numAxes).fill(false);
     if (sums && samples > 0) {
       for (let i = 0; i < numAxes; i++) {
-        const r = Math.round(sums[i] / samples);
+        const raw = sums[i] / samples;
+        const r = Math.round(raw);
+        rawPublic[i] = raw;
         roundedPublic[i] = r;
         matches[i] = r === target.profile[i];
       }
@@ -825,6 +851,7 @@ function computeAccuracy(room: Room): ProfileAccuracy[] {
     return {
       playerId: target.id,
       matches,
+      rawPublic,
       roundedPublic,
       truth: [...target.profile],
       bonus: matchCount * room.settings.publicAccuracyBonus,

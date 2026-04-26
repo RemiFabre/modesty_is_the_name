@@ -248,6 +248,19 @@ export const CLUE_WORD_MAX_LEN = 30;
 
 export type Phase = "lobby" | "round" | "reveal" | "ended";
 
+export interface ScoreBreakdown {
+  /** Points from MY guesses of others' words (correct-pick contribution). */
+  wordGuesser: number;
+  /** Points from others guessing MY clue words correctly. */
+  wordTarget: number;
+  /** Points from MY axis guesses of others' profiles. */
+  profileGuesser: number;
+  /** Points from others correctly guessing MY profile axes. */
+  profileTarget: number;
+  /** Public-accuracy bonus (awarded once at game end). */
+  accuracyBonus: number;
+}
+
 export interface PublicPlayer {
   id: string;
   /** During round phase, this is the anonymous label for opponents. Reveal/ended/lobby show real names. */
@@ -262,6 +275,8 @@ export interface PublicPlayer {
   hideScore: boolean;
   /** True if this player is being shown anonymously (opponent during round phase). */
   anonymous: boolean;
+  /** Score broken down by source. */
+  breakdown: ScoreBreakdown;
 }
 
 export interface PublicClue {
@@ -318,7 +333,9 @@ export interface ProfileAccuracy {
   playerId: string;
   /** Per-axis: was the rounded public figure equal to the true value? */
   matches: boolean[];
-  /** The rounded public figure used for the comparison. null entries = no opponent had guessed that axis. */
+  /** The cumulative public figure (raw float) per axis. null = no guesses ever submitted for that target. */
+  rawPublic: (number | null)[];
+  /** Same value, rounded to nearest 1..5 (used for the bonus comparison). */
   roundedPublic: (number | null)[];
   /** True profile values (revealed at game end). */
   truth: number[];

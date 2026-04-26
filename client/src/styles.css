@@ -1012,6 +1012,263 @@ select:focus {
   align-items: baseline;
 }
 
+/* === End-of-game rich scoreboard === */
+
+.winner-card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  background: linear-gradient(
+    135deg,
+    rgba(246, 193, 119, 0.18),
+    rgba(246, 193, 119, 0.05)
+  );
+  border: 1px solid rgba(246, 193, 119, 0.55);
+}
+
+.winner-trophy {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.winner-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.winner-label {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+
+.winner-name {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.winner-score {
+  margin: 0;
+  color: var(--fg-dim);
+  font-size: 0.95rem;
+}
+
+.scorecard {
+  gap: 0.8rem;
+}
+
+.scorecard-winner {
+  border: 1px solid rgba(246, 193, 119, 0.5);
+  background: linear-gradient(
+    180deg,
+    rgba(246, 193, 119, 0.08),
+    var(--bg-elev)
+  );
+}
+
+.scorecard-me::after {
+  content: "";
+}
+
+.scorecard-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.scorecard-rank {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  color: var(--fg-dim);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.scorecard-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.scorecard-winner .scorecard-name {
+  font-size: 1.35rem;
+  color: var(--accent);
+}
+
+.scorecard-total {
+  margin-left: auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.scorecard-winner .scorecard-total {
+  font-size: 1.8rem;
+  color: var(--accent);
+}
+
+.breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 0;
+}
+
+.breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.breakdown-icon {
+  font-size: 1rem;
+  flex: 0 0 auto;
+}
+
+.breakdown-label {
+  flex: 1;
+  color: var(--fg-dim);
+}
+
+.breakdown-points {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-weight: 700;
+  min-width: 2.5em;
+  text-align: right;
+}
+
+.breakdown-points.good {
+  color: var(--good);
+}
+
+.breakdown-points.bad {
+  color: var(--danger);
+}
+
+.breakdown-points.muted {
+  color: var(--fg-dim);
+}
+
+.clue-quote {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  background: rgba(246, 193, 119, 0.08);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  color: var(--fg);
+}
+
+.quoted-word {
+  text-transform: lowercase;
+  font-weight: 500;
+}
+
+.quote-sep {
+  color: var(--fg-dim);
+  font-style: normal;
+  margin: 0 0.15em;
+}
+
+.profile-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.axis-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.axis-row-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--fg-dim);
+}
+
+.axis-row-track {
+  position: relative;
+  height: 14px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.axis-tick {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 6px;
+  background: var(--border);
+  transform: translate(-50%, -50%);
+}
+
+.axis-marker {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--bg);
+}
+
+.axis-truth {
+  background: var(--accent);
+  z-index: 2;
+}
+
+.axis-public {
+  background: var(--accent-2);
+  z-index: 1;
+}
+
+.axis-row-numbers {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.axis-number-truth {
+  color: var(--fg-dim);
+}
+
+.axis-number-truth strong {
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+.axis-number-pub {
+  color: var(--fg-dim);
+}
+
+.axis-number-pub strong {
+  color: var(--accent-2);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+.axis-distance {
+  margin-left: 0.2em;
+}
+
 /* === End-of-game profiles === */
 
 .profiles {
