@@ -113,8 +113,10 @@ export interface Room {
   round: Round | null;
   winnerId: string | null;
   createdAt: number;
-  /** Most recent profile guesses across all rounds. guesserId -> targetId -> axis values. */
-  latestProfileGuesses: Map<string, Map<string, number[]>>;
+  /** Cumulative per-target axis sums across every guess ever submitted. */
+  profileGuessSums: Map<string, number[]>;
+  /** Total number of guesses ever submitted for each target. */
+  profileGuessSamples: Map<string, number>;
 }
 
 const rooms = new Map<string, Room>();
@@ -249,7 +251,8 @@ export function createRoom(
     round: null,
     winnerId: null,
     createdAt: Date.now(),
-    latestProfileGuesses: new Map(),
+    profileGuessSums: new Map(),
+    profileGuessSamples: new Map(),
   };
   rooms.set(code, room);
   return { room, player: host };
@@ -453,13 +456,17 @@ export function submitGuess(
     round.profileGuesses.set(player.id, profileOuter);
   }
   profileOuter.set(targetId, axes);
-  // Update latest-guess tracker for nation aggregation.
-  let latest = room.latestProfileGuesses.get(player.id);
-  if (!latest) {
-    latest = new Map();
-    room.latestProfileGuesses.set(player.id, latest);
+  // Accumulate cumulative axis sums + sample count for the public figure.
+  let sums = room.profileGuessSums.get(targetId);
+  if (!sums) {
+    sums = new Array<number>(room.settings.profileAxes.length).fill(0);
+    room.profileGuessSums.set(targetId, sums);
   }
-  latest.set(targetId, axes);
+  for (let i = 0; i < axes.length; i++) sums[i] += axes[i];
+  room.profileGuessSamples.set(
+    targetId,
+    (room.profileGuessSamples.get(targetId) ?? 0) + 1,
+  );
   applyBankTopUp(
     player,
     room.settings.guessPhaseSeconds,
@@ -610,20 +617,12 @@ function tryResolveRound(room: Room): void {
 function applyPublicAccuracyBonus(room: Room): void {
   const numAxes = room.settings.profileAxes.length;
   for (const target of room.players) {
-    const sums = new Array<number>(numAxes).fill(0);
-    let samples = 0;
-    for (const [guesserId, perTarget] of room.latestProfileGuesses) {
-      if (guesserId === target.id) continue;
-      const guess = perTarget.get(target.id);
-      if (!guess) continue;
-      for (let i = 0; i < numAxes; i++) sums[i] += guess[i];
-      samples++;
-    }
-    if (samples === 0) continue;
+    const sums = room.profileGuessSums.get(target.id);
+    const samples = room.profileGuessSamples.get(target.id) ?? 0;
+    if (!sums || samples === 0) continue;
     let matches = 0;
     for (let i = 0; i < numAxes; i++) {
-      const avg = sums[i] / samples;
-      const rounded = Math.round(avg);
+      const rounded = Math.round(sums[i] / samples);
       if (rounded === target.profile[i]) matches++;
     }
     const bonus = matches * room.settings.publicAccuracyBonus;
@@ -811,28 +810,16 @@ export function viewFor(room: Room, playerId: string): PublicState {
 function computeAccuracy(room: Room): ProfileAccuracy[] {
   const numAxes = room.settings.profileAxes.length;
   return room.players.map((target) => {
-    const sums = new Array<number>(numAxes).fill(0);
-    const samplesPerAxis = new Array<number>(numAxes).fill(0);
-    for (const [guesserId, perTarget] of room.latestProfileGuesses) {
-      if (guesserId === target.id) continue;
-      const guess = perTarget.get(target.id);
-      if (!guess) continue;
+    const sums = room.profileGuessSums.get(target.id);
+    const samples = room.profileGuessSamples.get(target.id) ?? 0;
+    const roundedPublic: (number | null)[] = new Array(numAxes).fill(null);
+    const matches: boolean[] = new Array(numAxes).fill(false);
+    if (sums && samples > 0) {
       for (let i = 0; i < numAxes; i++) {
-        sums[i] += guess[i];
-        samplesPerAxis[i]++;
+        const r = Math.round(sums[i] / samples);
+        roundedPublic[i] = r;
+        matches[i] = r === target.profile[i];
       }
-    }
-    const roundedPublic: (number | null)[] = [];
-    const matches: boolean[] = [];
-    for (let i = 0; i < numAxes; i++) {
-      if (samplesPerAxis[i] === 0) {
-        roundedPublic.push(null);
-        matches.push(false);
-        continue;
-      }
-      const r = Math.round(sums[i] / samplesPerAxis[i]);
-      roundedPublic.push(r);
-      matches.push(r === target.profile[i]);
     }
     const matchCount = matches.filter((m) => m).length;
     return {
@@ -847,18 +834,14 @@ function computeAccuracy(room: Room): ProfileAccuracy[] {
 
 function buildNation(room: Room, target: Player): PublicNation {
   const numAxes = room.settings.profileAxes.length;
-  const sums: number[] = new Array(numAxes).fill(0);
-  let samples = 0;
-  for (const [guesserId, perTarget] of room.latestProfileGuesses) {
-    if (guesserId === target.id) continue;
-    const axes = perTarget.get(target.id);
-    if (!axes || axes.length !== numAxes) continue;
-    for (let i = 0; i < numAxes; i++) sums[i] += axes[i];
-    samples++;
+  const sums = room.profileGuessSums.get(target.id);
+  const samples = room.profileGuessSamples.get(target.id) ?? 0;
+  const averageAxes: (number | null)[] = new Array(numAxes).fill(null);
+  if (sums && samples > 0) {
+    for (let i = 0; i < numAxes; i++) {
+      averageAxes[i] = sums[i] / samples;
+    }
   }
-  const averageAxes: (number | null)[] = sums.map((s) =>
-    samples > 0 ? s / samples : null,
-  );
   return {
     playerId: target.id,
     name: target.name,
