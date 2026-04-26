@@ -1,4 +1,40 @@
-export type Language = "en" | "fr";
+export type Language =
+  | "en"
+  | "fr"
+  | "es"
+  | "pt"
+  | "de"
+  | "it"
+  | "pl"
+  | "nl"
+  | "tr"
+  | "cs";
+
+export const LANGUAGES: Language[] = [
+  "en",
+  "fr",
+  "es",
+  "pt",
+  "de",
+  "it",
+  "pl",
+  "nl",
+  "tr",
+  "cs",
+];
+
+export const LANGUAGE_NAMES: Record<Language, string> = {
+  en: "English",
+  fr: "Français",
+  es: "Español",
+  pt: "Português",
+  de: "Deutsch",
+  it: "Italiano",
+  pl: "Polski",
+  nl: "Nederlands",
+  tr: "Türkçe",
+  cs: "Čeština",
+};
 
 export type ScoringMode = "symmetric" | "generous" | "risky";
 

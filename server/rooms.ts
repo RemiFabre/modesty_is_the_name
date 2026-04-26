@@ -4,6 +4,7 @@ import {
   CLUE_COUNT_MIN,
   CLUE_WORD_MAX_LEN,
   DEFAULT_SETTINGS,
+  LANGUAGES,
   riskyReward,
   SCORING_MODES,
   SETTINGS_BOUNDS,
@@ -114,7 +115,7 @@ export function getRoomBySocketId(
 
 export function clampSettings(input: Partial<RoomSettings>): RoomSettings {
   const merged: RoomSettings = { ...DEFAULT_SETTINGS, ...input };
-  if (merged.language !== "en" && merged.language !== "fr") {
+  if (!LANGUAGES.includes(merged.language)) {
     merged.language = DEFAULT_SETTINGS.language;
   }
   if (!SCORING_MODES.includes(merged.scoring)) {

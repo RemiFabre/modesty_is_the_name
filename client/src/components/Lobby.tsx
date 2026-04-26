@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { SCORING_MODE_INFO, type PublicState } from "../../../shared/types";
+import {
+  LANGUAGE_NAMES,
+  SCORING_MODE_INFO,
+  type PublicState,
+} from "../../../shared/types";
 import { getSocket } from "../socket";
 
 export function Lobby({ state }: { state: PublicState }) {
@@ -45,7 +49,7 @@ export function Lobby({ state }: { state: PublicState }) {
         <h1>Lobby</h1>
         <p className="tagline">
           Room <strong className="code">{state.roomCode}</strong> ·{" "}
-          {state.settings.language === "en" ? "English" : "Français"}
+          {LANGUAGE_NAMES[state.settings.language]}
         </p>
       </header>
       <main className="main">

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import {
   DEFAULT_SETTINGS,
+  LANGUAGE_NAMES,
+  LANGUAGES,
   SCORING_MODE_INFO,
   SCORING_MODES,
   SETTINGS_BOUNDS,
@@ -76,22 +78,16 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
           <h2>Create a game</h2>
           <label className="field">
             <span>Language</span>
-            <div className="seg">
-              <button
-                type="button"
-                className={language === "en" ? "seg-on" : ""}
-                onClick={() => setLanguage("en")}
-              >
-                English
-              </button>
-              <button
-                type="button"
-                className={language === "fr" ? "seg-on" : ""}
-                onClick={() => setLanguage("fr")}
-              >
-                Français
-              </button>
-            </div>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as Language)}
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l} value={l}>
+                  {LANGUAGE_NAMES[l]}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label className="field">
