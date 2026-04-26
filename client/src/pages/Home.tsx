@@ -1,11 +1,16 @@
 import { useState } from "react";
 import {
+  AXIS_LABEL_MAX_LEN,
   DEFAULT_SETTINGS,
   LANGUAGE_NAMES,
   LANGUAGES,
+  PROFILE_AXES_MAX,
+  PROFILE_AXES_MIN,
+  PROFILE_PRESETS,
   SCORING_MODE_INFO,
   SCORING_MODES,
   SETTINGS_BOUNDS,
+  type AxisPair,
   type Language,
   type RoomSettings,
   type ScoringMode,
@@ -111,6 +116,13 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
             </span>
           </label>
 
+          <ProfileAxesEditor
+            axes={settings.profileAxes}
+            onChange={(profileAxes) =>
+              setSettings((s) => ({ ...s, profileAxes }))
+            }
+          />
+
           <button
             type="button"
             className="link"
@@ -166,6 +178,12 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
                 onChange={(v) =>
                   setSettings((s) => ({ ...s, pointsPerPlayer: v }))
                 }
+              />
+              <NumberField
+                label="Solve bonus"
+                value={settings.solveBonus}
+                bounds={SETTINGS_BOUNDS.solveBonus}
+                onChange={(v) => setSettings((s) => ({ ...s, solveBonus: v }))}
               />
             </div>
           )}
@@ -235,5 +253,104 @@ function NumberField({
         }}
       />
     </label>
+  );
+}
+
+function ProfileAxesEditor({
+  axes,
+  onChange,
+}: {
+  axes: AxisPair[];
+  onChange: (next: AxisPair[]) => void;
+}) {
+  function setPreset(id: string) {
+    if (id === "custom") return; // keep current axes
+    const preset = PROFILE_PRESETS.find((p) => p.id === id);
+    if (preset) onChange(preset.axes.map((a) => ({ ...a })));
+  }
+
+  // Detect which preset (if any) currently matches.
+  const currentPresetId =
+    PROFILE_PRESETS.find(
+      (p) =>
+        p.axes.length === axes.length &&
+        p.axes.every(
+          (a, i) =>
+            a.left === axes[i]?.left && a.right === axes[i]?.right,
+        ),
+    )?.id ?? "custom";
+
+  function updateAxis(i: number, patch: Partial<AxisPair>) {
+    onChange(
+      axes.map((a, idx) =>
+        idx === i ? { left: patch.left ?? a.left, right: patch.right ?? a.right } : a,
+      ),
+    );
+  }
+  function addAxis() {
+    if (axes.length >= PROFILE_AXES_MAX) return;
+    onChange([...axes, { left: "Low", right: "High" }]);
+  }
+  function removeAxis(i: number) {
+    if (axes.length <= PROFILE_AXES_MIN) return;
+    onChange(axes.filter((_, idx) => idx !== i));
+  }
+
+  return (
+    <div className="field">
+      <span>Profile axes</span>
+      <select
+        value={currentPresetId}
+        onChange={(e) => setPreset(e.target.value)}
+      >
+        {PROFILE_PRESETS.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.label} ({p.axes.length} axes)
+          </option>
+        ))}
+        <option value="custom">Custom</option>
+      </select>
+      <div className="axes-editor">
+        {axes.map((a, i) => (
+          <div key={i} className="axis-edit-row">
+            <input
+              value={a.left}
+              maxLength={AXIS_LABEL_MAX_LEN}
+              onChange={(e) => updateAxis(i, { left: e.target.value })}
+              placeholder="Left"
+            />
+            <span className="axis-edit-sep">↔</span>
+            <input
+              value={a.right}
+              maxLength={AXIS_LABEL_MAX_LEN}
+              onChange={(e) => updateAxis(i, { right: e.target.value })}
+              placeholder="Right"
+            />
+            <button
+              type="button"
+              className="ghost axis-edit-rm"
+              onClick={() => removeAxis(i)}
+              disabled={axes.length <= PROFILE_AXES_MIN}
+              title="Remove"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="row">
+        <button
+          type="button"
+          className="ghost"
+          onClick={addAxis}
+          disabled={axes.length >= PROFILE_AXES_MAX}
+        >
+          + Add axis
+        </button>
+        <span className="muted small">
+          {axes.length} / {PROFILE_AXES_MAX} (min {PROFILE_AXES_MIN})
+        </span>
+      </div>
+    </div>
   );
 }

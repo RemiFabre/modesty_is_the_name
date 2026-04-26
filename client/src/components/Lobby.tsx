@@ -97,6 +97,18 @@ export function Lobby({ state }: { state: PublicState }) {
               </strong>
             </li>
             <li>
+              <span>Profile axes</span>
+              <strong>
+                {state.settings.profileAxes
+                  .map((a) => `${a.left}↔${a.right}`)
+                  .join(" · ")}
+              </strong>
+            </li>
+            <li>
+              <span>Solve bonus</span>
+              <strong>+{state.settings.solveBonus}</strong>
+            </li>
+            <li>
               <span>Pool size</span>
               <strong>{state.settings.poolSize}</strong>
             </li>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { PublicState } from "../../../shared/types";
 import { getSocket } from "../socket";
+import { NationsPanel } from "./Nations";
 import { WordPool } from "./WordPool";
 
 export function Reveal({ state }: { state: PublicState }) {
@@ -65,6 +66,10 @@ export function Reveal({ state }: { state: PublicState }) {
           );
         })}
 
+        <ProfileResults state={state} />
+
+        <NationsPanel state={state} />
+
         {state.isHost ? (
           <button
             className="primary big"
@@ -81,6 +86,44 @@ export function Reveal({ state }: { state: PublicState }) {
         {error && <p className="error">{error}</p>}
       </main>
     </div>
+  );
+}
+
+function ProfileResults({ state }: { state: PublicState }) {
+  const fb = state.profileFeedback;
+  if (!fb) return null;
+  const axisCount = state.settings.profileAxes.length;
+  const targets = Object.keys(fb.hits);
+  if (targets.length === 0) return null;
+
+  return (
+    <section className="card">
+      <h2>Profile guesses</h2>
+      <p className="muted small">
+        You only see how many you got right — not which ones.
+      </p>
+      <ul className="opponents">
+        {targets.map((tid) => {
+          const player = state.players.find((p) => p.id === tid);
+          if (!player) return null;
+          const hits = fb.hits[tid];
+          const solved = fb.solvedThisRound.includes(tid);
+          return (
+            <li key={tid} className={solved ? "reveal-row solved" : "reveal-row"}>
+              <span className="player-name">{player.realName ?? player.name}</span>
+              <span className="hits">
+                {hits} / {axisCount} correct
+              </span>
+              {solved && (
+                <span className="badge host solved-badge">
+                  SOLVED +{state.settings.solveBonus}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

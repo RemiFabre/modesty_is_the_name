@@ -3,10 +3,15 @@ import {
   CLUE_COUNT_MAX,
   CLUE_COUNT_MIN,
   CLUE_WORD_MAX_LEN,
+  PROFILE_AXIS_MAX,
+  PROFILE_AXIS_MIN,
+  PROFILE_AXIS_VALUES,
+  type AxisPair,
   type PublicClue,
   type PublicPlayer,
   type PublicState,
 } from "../../../shared/types";
+import { NationsPanel } from "./Nations";
 import { getSocket } from "../socket";
 import { useNow } from "../useNow";
 import { WordPool } from "./WordPool";
@@ -135,6 +140,10 @@ export function Round({ state }: { state: PublicState }) {
             targetName={activity.row.player.name}
             count={activity.row.clue.count}
             selected={selected}
+            axes={state.settings.profileAxes}
+            alreadySolved={state.me.solvedTargets.includes(
+              activity.row.player.id,
+            )}
             onSubmitted={() => setSelected(new Set())}
           />
         )}
@@ -147,6 +156,8 @@ export function Round({ state }: { state: PublicState }) {
         )}
 
         <Standings state={state} />
+
+        <NationsPanel state={state} />
 
         {myClue && (
           <section className="card subtle">
@@ -263,18 +274,35 @@ function GuessAction({
   targetName,
   count,
   selected,
+  axes,
+  alreadySolved,
   onSubmitted,
 }: {
   targetId: string;
   targetName: string;
   count: number;
   selected: ReadonlySet<string>;
+  axes: AxisPair[];
+  alreadySolved: boolean;
   onSubmitted: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Default each axis to the middle value (3) so player can submit fast if they have no read.
+  const [axisValues, setAxisValues] = useState<number[]>(() =>
+    axes.map(() => 3),
+  );
+  // Reset axis values when the target changes.
+  useEffect(() => {
+    setAxisValues(axes.map(() => 3));
+  }, [axes, targetId]);
+
   const remaining = count - selected.size;
-  const canSubmit = remaining === 0 && !busy;
+  const wordsOk = remaining === 0;
+  const axesOk = axisValues.every(
+    (v) => v >= PROFILE_AXIS_MIN && v <= PROFILE_AXIS_MAX,
+  );
+  const canSubmit = wordsOk && axesOk && !busy;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -283,7 +311,7 @@ function GuessAction({
     setError(null);
     getSocket().emit(
       "guess:submit",
-      { targetId, picks: Array.from(selected) },
+      { targetId, picks: Array.from(selected), axes: axisValues },
       (ack) => {
         setBusy(false);
         if (!ack.ok) {
@@ -297,20 +325,73 @@ function GuessAction({
 
   return (
     <form className="card action-card" onSubmit={submit}>
+      <div className="axes">
+        <h3>
+          Guess {targetName}'s profile{" "}
+          {alreadySolved && (
+            <span className="badge host">already solved</span>
+          )}
+        </h3>
+        {axes.map((axis, i) => (
+          <AxisGuess
+            key={i}
+            axis={axis}
+            value={axisValues[i]}
+            onChange={(v) =>
+              setAxisValues((prev) => prev.map((x, j) => (j === i ? v : x)))
+            }
+            disabled={busy}
+          />
+        ))}
+      </div>
       <p className="muted center">
-        {selected.size} of {count} selected
+        {selected.size} of {count} word{count === 1 ? "" : "s"} selected
       </p>
       <button type="submit" className="primary big" disabled={!canSubmit}>
         {busy
           ? "Submitting…"
           : remaining > 0
-            ? `Pick ${remaining} more`
+            ? `Pick ${remaining} more word${remaining === 1 ? "" : "s"}`
             : remaining < 0
               ? `Remove ${-remaining}`
               : `Submit guess for ${targetName}`}
       </button>
       {error && <p className="error">{error}</p>}
     </form>
+  );
+}
+
+function AxisGuess({
+  axis,
+  value,
+  onChange,
+  disabled,
+}: {
+  axis: AxisPair;
+  value: number;
+  onChange: (v: number) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="axis">
+      <div className="axis-labels">
+        <span className="axis-end">{axis.left}</span>
+        <span className="axis-end axis-end-right">{axis.right}</span>
+      </div>
+      <div className="axis-buttons">
+        {PROFILE_AXIS_VALUES.map((n) => (
+          <button
+            key={n}
+            type="button"
+            className={"axis-btn " + (value === n ? "axis-on" : "")}
+            onClick={() => onChange(n)}
+            disabled={disabled}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

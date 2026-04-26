@@ -737,3 +737,243 @@ select:focus {
     padding: 0.85rem;
   }
 }
+
+/* === Profile axes (lobby editor) === */
+
+.axes-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.axis-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.axis-edit-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.axis-edit-sep {
+  color: var(--fg-dim);
+}
+
+.axis-edit-rm {
+  flex: 0 0 auto;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0.4rem 0.6rem;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+/* === Profile axes (Phase B guessing) === */
+
+.axes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.7rem;
+}
+
+.axes h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--fg-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.axis {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.axis-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.axis-end {
+  color: var(--fg-dim);
+}
+
+.axis-end-right {
+  text-align: right;
+}
+
+.axis-buttons {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.3rem;
+}
+
+.axis-btn {
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.3rem;
+  font-weight: 600;
+  font-size: 1rem;
+  min-height: 44px;
+}
+
+.axis-on {
+  background: var(--accent-2);
+  color: #08161b;
+  border-color: var(--accent-2);
+}
+
+/* === Nations panel === */
+
+.nations {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.nation {
+  background: var(--bg-elev-2);
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.nation-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.nation-clues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.clue-tag {
+  background: rgba(246, 193, 119, 0.13);
+  border-color: rgba(246, 193, 119, 0.35);
+  color: var(--accent);
+  text-transform: lowercase;
+}
+
+.nation-axes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.axis-reading {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.15rem;
+  font-size: 0.78rem;
+}
+
+.axis-reading-labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--fg-dim);
+}
+
+.axis-track {
+  position: relative;
+  height: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.axis-marker {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.axis-avg {
+  background: var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(136, 192, 208, 0.25);
+}
+
+.axis-self {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(246, 193, 119, 0.3);
+}
+
+.axis-reading-value {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.axis-self-tag {
+  color: var(--accent);
+}
+
+/* === Reveal additions === */
+
+.reveal-row.solved {
+  background: rgba(246, 193, 119, 0.13);
+  border-radius: 8px;
+  padding: 0.4rem 0.5rem;
+}
+
+.solved-badge {
+  margin-left: auto;
+  font-weight: 700;
+}
+
+.hits {
+  margin-left: auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-weight: 700;
+}
+
+/* === End-of-game profiles === */
+
+.profiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.profiles > li {
+  background: var(--bg-elev-2);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+}
+
+.profile-axes {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.profile-axes li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
