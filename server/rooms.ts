@@ -31,7 +31,10 @@ export interface Player {
   socketId: string | null;
   isHost: boolean;
   score: number;
+  /** Snapshot bank value at the last "close". Live value while running = bankSeconds - (now - bankActiveSince)/1000. */
   bankSeconds: number;
+  /** When non-null, the bank is running (counting down) since this timestamp. */
+  bankActiveSince: number | null;
   lastRoundDelta: number;
 }
 
@@ -137,6 +140,7 @@ function makePlayer(name: string, isHost: boolean, bankSeconds: number): Player 
     isHost,
     score: 0,
     bankSeconds,
+    bankActiveSince: null,
     lastRoundDelta: 0,
   };
 }
@@ -207,7 +211,55 @@ export function setSettings(
   room.settings = merged;
   for (const p of room.players) {
     p.bankSeconds = merged.initialBankSeconds;
+    p.bankActiveSince = null;
   }
+}
+
+/* Bank helpers (single chess-clock model with per-action top-ups). */
+
+function closeBank(player: Player, now: number): void {
+  if (player.bankActiveSince !== null) {
+    const elapsed = (now - player.bankActiveSince) / 1000;
+    player.bankSeconds -= elapsed;
+    player.bankActiveSince = null;
+  }
+}
+
+function closeAllBanks(room: Room, now: number): void {
+  for (const p of room.players) closeBank(p, now);
+}
+
+function isPlayerActiveInRound(room: Room, player: Player): boolean {
+  if (room.phase !== "round" || !room.round) return false;
+  const round = room.round;
+  if (!round.clues.has(player.id)) return true;
+  const guesses = round.guesses.get(player.id) ?? new Map();
+  for (const [oppId] of round.clues) {
+    if (oppId === player.id) continue;
+    if (!guesses.has(oppId)) return true;
+  }
+  return false;
+}
+
+function syncBankActivity(room: Room, player: Player, now: number): void {
+  const shouldBeActive = isPlayerActiveInRound(room, player);
+  if (shouldBeActive && player.bankActiveSince === null) {
+    player.bankActiveSince = now;
+  } else if (!shouldBeActive) {
+    closeBank(player, now);
+  }
+}
+
+function syncAllBankActivity(room: Room, now: number): void {
+  for (const p of room.players) syncBankActivity(room, p, now);
+}
+
+function applyBankTopUp(
+  player: Player,
+  amount: number,
+  maxSeconds: number,
+): void {
+  player.bankSeconds = Math.min(player.bankSeconds + amount, maxSeconds);
 }
 
 export function startGame(room: Room, player: Player): void {
@@ -216,6 +268,7 @@ export function startGame(room: Room, player: Player): void {
   if (room.players.length < 2) throw new Error("Need at least 2 players to start");
   room.phase = "round";
   room.round = newRound(room, 1);
+  syncAllBankActivity(room, Date.now());
 }
 
 function newRound(room: Room, number: number): Round {
@@ -258,8 +311,15 @@ export function submitClue(
     intended,
     submittedAt,
   };
+  closeAllBanks(room, submittedAt);
   room.round.clues.set(player.id, clue);
   recordGuessWindowsForPlayer(room, player.id, submittedAt);
+  applyBankTopUp(
+    player,
+    room.settings.cluePhaseSeconds,
+    room.settings.maxBankSeconds,
+  );
+  syncAllBankActivity(room, submittedAt);
 }
 
 export function submitGuess(
@@ -294,7 +354,15 @@ export function submitGuess(
   if (picks.length !== targetClue.count) {
     throw new Error(`Pick exactly ${targetClue.count} words`);
   }
+  const now = Date.now();
+  closeAllBanks(room, now);
   outer.set(targetId, picks);
+  applyBankTopUp(
+    player,
+    room.settings.guessPhaseSeconds,
+    room.settings.maxBankSeconds,
+  );
+  syncAllBankActivity(room, now);
   tryResolveRound(room);
 }
 
@@ -388,6 +456,8 @@ function tryResolveRound(room: Room): void {
   } else {
     room.phase = "reveal";
   }
+  // Round is over — pause everyone's bank.
+  closeAllBanks(room, Date.now());
 }
 
 export function nextRound(room: Room, player: Player): void {
@@ -397,6 +467,7 @@ export function nextRound(room: Room, player: Player): void {
   room.phase = "round";
   room.round = newRound(room, next);
   for (const p of room.players) p.lastRoundDelta = 0;
+  syncAllBankActivity(room, Date.now());
 }
 
 export function attachSocket(room: Room, player: Player, socketId: string): void {
@@ -425,6 +496,7 @@ export function viewFor(room: Room, playerId: string): PublicState {
     clue: null as FullClue | null,
     guesses: {} as { [k: string]: string[] },
     bankSeconds: me?.bankSeconds ?? 0,
+    bankActiveSince: me?.bankActiveSince ?? null,
   };
 
   if (round) {
@@ -482,6 +554,14 @@ export function viewFor(room: Room, playerId: string): PublicState {
       clue: myClue,
       guesses: myGuesses,
       bankSeconds: me?.bankSeconds ?? 0,
+      bankActiveSince: me?.bankActiveSince ?? null,
+    };
+  } else {
+    publicMe = {
+      clue: null,
+      guesses: {},
+      bankSeconds: me?.bankSeconds ?? 0,
+      bankActiveSince: me?.bankActiveSince ?? null,
     };
   }
 

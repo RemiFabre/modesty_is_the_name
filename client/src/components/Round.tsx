@@ -5,7 +5,7 @@ import {
   type PublicPlayer,
   type PublicState,
 } from "../../../shared/types";
-import { fmtCountdown, useNow } from "../useNow";
+import { useNow } from "../useNow";
 import { ClueForm } from "./ClueForm";
 import { GuessForm } from "./GuessForm";
 import { WordPool } from "./WordPool";
@@ -90,13 +90,7 @@ export function Round({ state }: { state: PublicState }) {
 
   const interactive = activity.kind === "clue" || activity.kind === "guess";
 
-  const clueDeadline = round.startedAt + state.settings.cluePhaseSeconds * 1000;
-  const myClueSubmittedAt = myClue?.submittedAt ?? round.startedAt;
-  const guessDeadline =
-    activity.kind === "guess"
-      ? Math.max(activity.row.clue.submittedAt, myClueSubmittedAt) +
-        state.settings.guessPhaseSeconds * 1000
-      : null;
+  const liveBank = computeLiveBank(state.me.bankSeconds, state.me.bankActiveSince, now);
 
   return (
     <div className="app">
@@ -110,24 +104,17 @@ export function Round({ state }: { state: PublicState }) {
           </span>
         </div>
         <div className="round-clocks">
-          {activity.kind === "guess" && guessDeadline ? (
-            <Clock
-              label={`Guess ${activity.row.player.name}`}
-              value={fmtCountdown(guessDeadline, now)}
-              danger={now > guessDeadline}
-            />
-          ) : (
-            <Clock
-              label={myClue ? "Clue submitted" : "Clue phase"}
-              value={fmtCountdown(clueDeadline, now)}
-              danger={!myClue && now > clueDeadline}
-              done={Boolean(myClue) && activity.kind !== "guess"}
-            />
-          )}
           <Clock
-            label="Time bank"
-            value={fmtBank(state.me.bankSeconds)}
-            danger={state.me.bankSeconds <= 0}
+            label={
+              activity.kind === "clue"
+                ? "Your clock"
+                : activity.kind === "guess"
+                  ? `Your clock — guessing ${activity.row.player.name}`
+                  : "Your clock — waiting"
+            }
+            value={fmtBank(liveBank)}
+            danger={liveBank < 0}
+            done={activity.kind === "wait"}
           />
         </div>
       </header>
@@ -234,8 +221,17 @@ function Clock({
 
 function fmtBank(seconds: number): string {
   const sign = seconds < 0 ? "-" : "";
-  const abs = Math.abs(seconds);
+  const abs = Math.abs(Math.floor(seconds));
   const m = Math.floor(abs / 60);
   const s = abs % 60;
   return `${sign}${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function computeLiveBank(
+  snapshotSeconds: number,
+  activeSince: number | null,
+  now: number,
+): number {
+  if (activeSince === null) return snapshotSeconds;
+  return snapshotSeconds - (now - activeSince) / 1000;
 }

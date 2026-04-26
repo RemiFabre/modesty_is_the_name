@@ -90,20 +90,20 @@ export function Lobby({ state }: { state: PublicState }) {
               <strong>{state.settings.poolSize}</strong>
             </li>
             <li>
-              <span>Clue timer</span>
-              <strong>{state.settings.cluePhaseSeconds}s</strong>
-            </li>
-            <li>
-              <span>Guess timer</span>
-              <strong>{state.settings.guessPhaseSeconds}s / opponent</strong>
-            </li>
-            <li>
               <span>Initial bank</span>
               <strong>{fmtTime(state.settings.initialBankSeconds)}</strong>
             </li>
             <li>
               <span>Max bank</span>
               <strong>{fmtTime(state.settings.maxBankSeconds)}</strong>
+            </li>
+            <li>
+              <span>Top-up on clue submit</span>
+              <strong>+{fmtTime(state.settings.cluePhaseSeconds)}</strong>
+            </li>
+            <li>
+              <span>Top-up per guess</span>
+              <strong>+{fmtTime(state.settings.guessPhaseSeconds)}</strong>
             </li>
             <li>
               <span>Target score</span>

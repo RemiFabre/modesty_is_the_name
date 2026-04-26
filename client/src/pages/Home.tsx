@@ -102,23 +102,7 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
           {showAdvanced && (
             <div className="settings-grid">
               <NumberField
-                label="Clue timer (s)"
-                value={settings.cluePhaseSeconds}
-                bounds={SETTINGS_BOUNDS.cluePhaseSeconds}
-                onChange={(v) =>
-                  setSettings((s) => ({ ...s, cluePhaseSeconds: v }))
-                }
-              />
-              <NumberField
-                label="Guess timer (s)"
-                value={settings.guessPhaseSeconds}
-                bounds={SETTINGS_BOUNDS.guessPhaseSeconds}
-                onChange={(v) =>
-                  setSettings((s) => ({ ...s, guessPhaseSeconds: v }))
-                }
-              />
-              <NumberField
-                label="Initial time bank (s)"
+                label="Initial bank (s)"
                 value={settings.initialBankSeconds}
                 bounds={SETTINGS_BOUNDS.initialBankSeconds}
                 onChange={(v) =>
@@ -126,11 +110,27 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
                 }
               />
               <NumberField
-                label="Max time bank (s)"
+                label="Max bank (s)"
                 value={settings.maxBankSeconds}
                 bounds={SETTINGS_BOUNDS.maxBankSeconds}
                 onChange={(v) =>
                   setSettings((s) => ({ ...s, maxBankSeconds: v }))
+                }
+              />
+              <NumberField
+                label="Top-up on clue submit (s)"
+                value={settings.cluePhaseSeconds}
+                bounds={SETTINGS_BOUNDS.cluePhaseSeconds}
+                onChange={(v) =>
+                  setSettings((s) => ({ ...s, cluePhaseSeconds: v }))
+                }
+              />
+              <NumberField
+                label="Top-up per guess (s)"
+                value={settings.guessPhaseSeconds}
+                bounds={SETTINGS_BOUNDS.guessPhaseSeconds}
+                onChange={(v) =>
+                  setSettings((s) => ({ ...s, guessPhaseSeconds: v }))
                 }
               />
               <NumberField

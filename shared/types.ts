@@ -22,10 +22,10 @@ export const DEFAULT_SETTINGS: RoomSettings = {
 
 export const SETTINGS_BOUNDS = {
   poolSize: { min: 9, max: 40 },
-  cluePhaseSeconds: { min: 30, max: 600 },
-  guessPhaseSeconds: { min: 15, max: 300 },
-  initialBankSeconds: { min: 30, max: 1800 },
-  maxBankSeconds: { min: 30, max: 1800 },
+  cluePhaseSeconds: { min: 5, max: 600 },
+  guessPhaseSeconds: { min: 5, max: 300 },
+  initialBankSeconds: { min: 5, max: 1800 },
+  maxBankSeconds: { min: 5, max: 1800 },
   pointsPerPlayer: { min: 1, max: 50 },
 };
 
@@ -72,7 +72,10 @@ export interface FullClue extends Clue {
 export interface PublicMe {
   clue: FullClue | null;
   guesses: { [targetId: string]: string[] };
+  /** Snapshot bank value at the last "close" event. */
   bankSeconds: number;
+  /** When non-null, the bank is running (counting down) since this timestamp (server clock). */
+  bankActiveSince: number | null;
 }
 
 export interface PublicRound {
