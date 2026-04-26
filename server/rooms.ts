@@ -149,10 +149,10 @@ function pairDelta(
   switch (scoring) {
     case "symmetric":
       return hits - misses;
-    case "forgiving":
-      return hits;
+    case "generous":
+      return 2 * hits - misses;
     case "risky":
-      return riskyReward(hits) - misses;
+      return riskyReward(hits) - riskyReward(misses);
   }
 }
 
@@ -600,7 +600,7 @@ export function viewFor(room: Room, playerId: string): PublicState {
       return {
         id: p.id,
         name: displayName,
-        realName: showOthersScores || isMe ? p.name : undefined,
+        realName: p.name,
         connected: p.socketId !== null,
         isHost: p.isHost,
         score: p.score,

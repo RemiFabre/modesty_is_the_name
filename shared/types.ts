@@ -1,8 +1,8 @@
 export type Language = "en" | "fr";
 
-export type ScoringMode = "symmetric" | "forgiving" | "risky";
+export type ScoringMode = "symmetric" | "generous" | "risky";
 
-export const SCORING_MODES: ScoringMode[] = ["symmetric", "forgiving", "risky"];
+export const SCORING_MODES: ScoringMode[] = ["symmetric", "generous", "risky"];
 
 export interface ScoringModeInfo {
   id: ScoringMode;
@@ -19,23 +19,23 @@ export const SCORING_MODE_INFO: Record<ScoringMode, ScoringModeInfo> = {
     description:
       "Each correct word is +1 to both you and the clue-giver. Each incorrect word is −1 to both. Default.",
   },
-  forgiving: {
-    id: "forgiving",
-    label: "Forgiving",
-    short: "+1 / 0",
+  generous: {
+    id: "generous",
+    label: "Generous",
+    short: "+2 / −1",
     description:
-      "Each correct word is +1 to both. Wrong picks cost nothing. The lowest-friction mode.",
+      "Each correct word is +2 to both. Each incorrect word is −1 to both. Rewards confident clues; doesn't punish risk-taking too hard.",
   },
   risky: {
     id: "risky",
     label: "Risky",
-    short: "bonus on streaks",
+    short: "non-linear both ways",
     description:
-      "Hits scale: 1, 2, 4, 6, 9, 12, 16, 20, 25 for 1..9 correct. Each miss is −1. Big clues are explosive — both ways.",
+      "Sub-quadratic scaling on BOTH hits and misses. f(n)=⌊(n+1)²/4⌋ → 1,2,4,6,9,12,16,20,25. Delta = f(hits) − f(misses) (applied to both you and the clue-giver). Big clean wins are explosive; big clean misses are catastrophic.",
   },
 };
 
-/** Total reward for the bundle of `n` hits in risky mode. f(n) = floor((n+1)² / 4). */
+/** Sub-quadratic reward function used in risky mode. f(n) = floor((n+1)² / 4). */
 export function riskyReward(n: number): number {
   if (n <= 0) return 0;
   return Math.floor(((n + 1) * (n + 1)) / 4);
@@ -82,8 +82,8 @@ export interface PublicPlayer {
   id: string;
   /** During round phase, this is the anonymous label for opponents. Reveal/ended/lobby show real names. */
   name: string;
-  /** Real name. Only present when the viewer is allowed to see it (self always; others only at reveal/ended). */
-  realName?: string;
+  /** The player's real (chosen) name. Always exposed — anonymity is enforced via `name`/`anonymous` only for in-round per-clue UI. */
+  realName: string;
   connected: boolean;
   isHost: boolean;
   score: number;

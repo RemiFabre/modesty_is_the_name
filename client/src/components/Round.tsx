@@ -354,7 +354,7 @@ function Standings({ state }: { state: PublicState }) {
     <section className="card subtle">
       <h2>Standings</h2>
       <p className="muted small">
-        Names are anonymous until the round ends.
+        Scores only update at the end of each round.
       </p>
       <ol className="rank">
         {ranked.map((p, i) => (
@@ -364,11 +364,8 @@ function Standings({ state }: { state: PublicState }) {
           >
             <span className="rank-pos">{i + 1}</span>
             <span className="player-name">
-              {p.id === state.myPlayerId ? "You" : p.name}
+              {p.id === state.myPlayerId ? "You" : p.realName}
             </span>
-            {p.anonymous && p.id !== state.myPlayerId && (
-              <span className="anon-tag small">anon</span>
-            )}
             <span className="rank-score">{p.score}</span>
           </li>
         ))}
