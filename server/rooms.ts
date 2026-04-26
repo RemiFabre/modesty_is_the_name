@@ -481,17 +481,9 @@ export function submitGuess(
     round.profileGuesses.set(player.id, profileOuter);
   }
   profileOuter.set(targetId, axes);
-  // Accumulate cumulative axis sums + sample count for the public figure.
-  let sums = room.profileGuessSums.get(targetId);
-  if (!sums) {
-    sums = new Array<number>(room.settings.profileAxes.length).fill(0);
-    room.profileGuessSums.set(targetId, sums);
-  }
-  for (let i = 0; i < axes.length; i++) sums[i] += axes[i];
-  room.profileGuessSamples.set(
-    targetId,
-    (room.profileGuessSamples.get(targetId) ?? 0) + 1,
-  );
+  // Note: we do NOT update `room.profileGuessSums` here. The public figure
+  // (Nations panel) should reflect end-of-previous-round values only — current-round
+  // guesses are folded in at round resolve. See `tryResolveRound`.
   applyBankTopUp(
     player,
     room.settings.guessPhaseSeconds,
@@ -623,6 +615,23 @@ function tryResolveRound(room: Room): void {
   for (const p of room.players) {
     const c = round.clues.get(p.id);
     if (c) p.clueHistory.push(c.word);
+  }
+  // Now (and only now) fold this round's profile guesses into the cumulative
+  // public figure so the Nations panel updates end-of-round, not live.
+  const numAxes = room.settings.profileAxes.length;
+  for (const [, perTarget] of round.profileGuesses) {
+    for (const [targetId, axesGuess] of perTarget) {
+      let sums = room.profileGuessSums.get(targetId);
+      if (!sums) {
+        sums = new Array<number>(numAxes).fill(0);
+        room.profileGuessSums.set(targetId, sums);
+      }
+      for (let i = 0; i < axesGuess.length; i++) sums[i] += axesGuess[i];
+      room.profileGuessSamples.set(
+        targetId,
+        (room.profileGuessSamples.get(targetId) ?? 0) + 1,
+      );
+    }
   }
   // First-to-N detection (based on round-only scores; bonus applied AFTER game ends).
   const target = room.settings.pointsPerPlayer * room.players.length;

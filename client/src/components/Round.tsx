@@ -294,12 +294,15 @@ function GuessAction({
   const [error, setError] = useState<string | null>(null);
   // Default each axis to the middle value (3) so player can submit fast if they have no read.
   const [axisValues, setAxisValues] = useState<number[]>(() =>
-    axes.map(() => 3),
+    new Array(axes.length).fill(3),
   );
-  // Reset axis values when the target changes.
+  // Reset axis values when we switch to a different opponent (or the axis count changed).
   useEffect(() => {
-    setAxisValues(axes.map(() => 3));
-  }, [axes, targetId]);
+    setAxisValues(new Array(axes.length).fill(3));
+    // intentionally only depending on targetId + axis count — `axes` is a new array
+    // reference on every state broadcast, which would otherwise reset user input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetId, axes.length]);
 
   const remaining = count - selected.size;
   const wordsOk = remaining === 0;
