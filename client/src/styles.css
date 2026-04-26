@@ -668,3 +668,72 @@ select:focus {
 .rank-me {
   outline: 1px dashed var(--accent-2);
 }
+
+.prompt {
+  background: var(--bg-elev);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 8px;
+  padding: 0.75rem 0.95rem;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.prompt p {
+  margin: 0;
+}
+
+.prompt p + p {
+  margin-top: 0.5rem;
+}
+
+.prompt-strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.prompt-clue {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-align: center;
+}
+
+.prompt-guess {
+  border-left-color: var(--accent);
+}
+
+.anon-tag {
+  font-size: 0.7rem;
+  background: rgba(136, 192, 208, 0.15);
+  color: var(--accent-2);
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.anon-hint {
+  margin: 0;
+  font-style: italic;
+}
+
+.action-card {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-elev);
+  z-index: 5;
+}
+
+.pool-card {
+  padding: 0.5rem;
+}
+
+@media (min-width: 520px) {
+  .pool-card {
+    padding: 0.85rem;
+  }
+}

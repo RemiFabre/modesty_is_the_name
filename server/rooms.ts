@@ -582,9 +582,9 @@ export function viewFor(room: Room, playerId: string): PublicState {
         realName: showOthersScores || isMe ? p.name : undefined,
         connected: p.socketId !== null,
         isHost: p.isHost,
-        score: isMe || showOthersScores ? p.score : 0,
-        lastRoundDelta: isMe || showOthersScores ? p.lastRoundDelta : 0,
-        hideScore: !(isMe || showOthersScores),
+        score: p.score,
+        lastRoundDelta: p.lastRoundDelta,
+        hideScore: false,
         anonymous: isAnonRound && !isMe,
       };
     }),

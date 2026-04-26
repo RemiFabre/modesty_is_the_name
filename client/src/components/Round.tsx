@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CLUE_COUNT_MAX,
+  CLUE_COUNT_MIN,
+  CLUE_WORD_MAX_LEN,
   type PublicClue,
   type PublicPlayer,
   type PublicState,
 } from "../../../shared/types";
+import { getSocket } from "../socket";
 import { useNow } from "../useNow";
-import { ClueForm } from "./ClueForm";
-import { GuessForm } from "./GuessForm";
 import { WordPool } from "./WordPool";
 
 interface OpponentClueRow {
@@ -16,13 +17,17 @@ interface OpponentClueRow {
   guessed: boolean;
 }
 
+type Activity =
+  | { kind: "clue" }
+  | { kind: "guess"; row: OpponentClueRow }
+  | { kind: "wait" };
+
 export function Round({ state }: { state: PublicState }) {
   const now = useNow();
   const round = state.round;
 
   const me = state.players.find((p) => p.id === state.myPlayerId);
   const opponents = state.players.filter((p) => p.id !== state.myPlayerId);
-
   const myClue = state.me.clue;
 
   const opponentRows: OpponentClueRow[] = useMemo(() => {
@@ -40,11 +45,6 @@ export function Round({ state }: { state: PublicState }) {
 
   const nextOpponent = opponentRows.find((r) => !r.guessed) ?? null;
 
-  // Determine activity:
-  type Activity =
-    | { kind: "clue" }
-    | { kind: "guess"; row: OpponentClueRow }
-    | { kind: "wait" };
   const activity: Activity = !myClue
     ? { kind: "clue" }
     : nextOpponent
@@ -53,7 +53,6 @@ export function Round({ state }: { state: PublicState }) {
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Reset selection when activity changes (different opponent or cluing→guessing).
   const activityKey =
     activity.kind === "guess" ? `guess:${activity.row.player.id}` : activity.kind;
   useEffect(() => {
@@ -75,13 +74,8 @@ export function Round({ state }: { state: PublicState }) {
       if (next.has(word)) {
         next.delete(word);
       } else {
-        if (activity.kind === "guess" && next.size >= targetCount) {
-          // Replace oldest? Simpler: ignore to avoid surprising behaviour.
-          return prev;
-        }
-        if (activity.kind === "clue" && next.size >= CLUE_COUNT_MAX) {
-          return prev;
-        }
+        if (activity.kind === "guess" && next.size >= targetCount) return prev;
+        if (activity.kind === "clue" && next.size >= CLUE_COUNT_MAX) return prev;
         next.add(word);
       }
       return next;
@@ -89,7 +83,6 @@ export function Round({ state }: { state: PublicState }) {
   }
 
   const interactive = activity.kind === "clue" || activity.kind === "guess";
-
   const liveBank = computeLiveBank(state.me.bankSeconds, state.me.bankActiveSince, now);
 
   return (
@@ -117,17 +110,14 @@ export function Round({ state }: { state: PublicState }) {
             done={activity.kind === "wait"}
           />
         </div>
+        <p className="anon-hint muted small">
+          Players are shown by random anonymous labels until the round ends.
+        </p>
       </header>
       <main className="main">
-        <section className="card">
-          <h2>
-            Public words
-            {interactive && activity.kind === "guess"
-              ? ` (pick ${targetCount})`
-              : interactive && activity.kind === "clue"
-                ? ` (tap to mark intended)`
-                : ""}
-          </h2>
+        <InstructionPrompt activity={activity} />
+
+        <section className="card pool-card">
           <WordPool
             words={round.pool}
             selected={selected}
@@ -137,52 +127,28 @@ export function Round({ state }: { state: PublicState }) {
         </section>
 
         {activity.kind === "clue" && (
-          <ClueForm
-            selected={selected}
-            onSubmitted={() => setSelected(new Set())}
-          />
+          <ClueAction selected={selected} onSubmitted={() => setSelected(new Set())} />
         )}
-
         {activity.kind === "guess" && (
-          <GuessForm
+          <GuessAction
             targetId={activity.row.player.id}
             targetName={activity.row.player.name}
-            clueWord={activity.row.clue.word}
             count={activity.row.clue.count}
             selected={selected}
             onSubmitted={() => setSelected(new Set())}
           />
         )}
-
         {activity.kind === "wait" && (
-          <section className="card">
-            <h2>Waiting</h2>
-            <p className="muted">
-              You've guessed for everyone who has submitted. Waiting for the
-              remaining players…
-            </p>
-            <ul className="opponents">
-              {opponents.map((opp) => {
-                const submitted = round.hasClue.includes(opp.id);
-                const guessed = Boolean(state.me.guesses[opp.id]);
-                return (
-                  <li key={opp.id}>
-                    <span className="player-name">{opp.name}</span>
-                    {!submitted ? (
-                      <span className="muted small">thinking…</span>
-                    ) : guessed ? (
-                      <span className="badge">guessed</span>
-                    ) : (
-                      <span className="badge">submitted</span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+          <WaitingPanel
+            opponents={opponents}
+            hasClue={round.hasClue}
+            myGuesses={state.me.guesses}
+          />
         )}
 
-        {myClue && (activity.kind === "guess" || activity.kind === "wait") && (
+        <Standings state={state} />
+
+        {myClue && (
           <section className="card subtle">
             <h2>Your clue</h2>
             <p className="my-clue">
@@ -193,6 +159,221 @@ export function Round({ state }: { state: PublicState }) {
         )}
       </main>
     </div>
+  );
+}
+
+function InstructionPrompt({ activity }: { activity: Activity }) {
+  if (activity.kind === "clue") {
+    return (
+      <section className="prompt">
+        <p>
+          Tap the public words you want others to find, then type your clue word
+          below. Pick between {CLUE_COUNT_MIN} and {CLUE_COUNT_MAX} words.
+        </p>
+      </section>
+    );
+  }
+  if (activity.kind === "guess") {
+    const { player, clue } = activity.row;
+    return (
+      <section className="prompt prompt-guess">
+        <p>
+          Find the{" "}
+          <strong className="prompt-strong">{clue.count}</strong> word
+          {clue.count === 1 ? "" : "s"} you think{" "}
+          <strong className="prompt-strong">{player.name}</strong>{" "}
+          <span className="anon-tag">(anonymous label)</span> meant by:
+        </p>
+        <p className="prompt-clue">{clue.word.toUpperCase()}</p>
+      </section>
+    );
+  }
+  return (
+    <section className="prompt">
+      <p className="muted">
+        You've guessed for everyone who has submitted. Waiting for the rest of
+        the table…
+      </p>
+    </section>
+  );
+}
+
+function ClueAction({
+  selected,
+  onSubmitted,
+}: {
+  selected: ReadonlySet<string>;
+  onSubmitted: () => void;
+}) {
+  const [word, setWord] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const trimmed = word.trim();
+  const count = selected.size;
+  const validCount = count >= CLUE_COUNT_MIN && count <= CLUE_COUNT_MAX;
+  const canSubmit = trimmed.length > 0 && validCount && !busy;
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setBusy(true);
+    setError(null);
+    getSocket().emit(
+      "clue:submit",
+      { word: trimmed, intended: Array.from(selected) },
+      (ack) => {
+        setBusy(false);
+        if (!ack.ok) {
+          setError(ack.error);
+          return;
+        }
+        setWord("");
+        onSubmitted();
+      },
+    );
+  }
+
+  return (
+    <form className="card action-card" onSubmit={submit}>
+      <label className="field">
+        <span>Your clue word ({count} word{count === 1 ? "" : "s"} selected)</span>
+        <input
+          autoFocus
+          value={word}
+          onChange={(e) => setWord(e.target.value)}
+          maxLength={CLUE_WORD_MAX_LEN}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          placeholder="e.g. truck"
+          disabled={busy}
+        />
+      </label>
+      <button type="submit" className="primary big" disabled={!canSubmit}>
+        {busy ? "Submitting…" : `Submit clue (${count})`}
+      </button>
+      {error && <p className="error">{error}</p>}
+    </form>
+  );
+}
+
+function GuessAction({
+  targetId,
+  targetName,
+  count,
+  selected,
+  onSubmitted,
+}: {
+  targetId: string;
+  targetName: string;
+  count: number;
+  selected: ReadonlySet<string>;
+  onSubmitted: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const remaining = count - selected.size;
+  const canSubmit = remaining === 0 && !busy;
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setBusy(true);
+    setError(null);
+    getSocket().emit(
+      "guess:submit",
+      { targetId, picks: Array.from(selected) },
+      (ack) => {
+        setBusy(false);
+        if (!ack.ok) {
+          setError(ack.error);
+          return;
+        }
+        onSubmitted();
+      },
+    );
+  }
+
+  return (
+    <form className="card action-card" onSubmit={submit}>
+      <p className="muted center">
+        {selected.size} of {count} selected
+      </p>
+      <button type="submit" className="primary big" disabled={!canSubmit}>
+        {busy
+          ? "Submitting…"
+          : remaining > 0
+            ? `Pick ${remaining} more`
+            : remaining < 0
+              ? `Remove ${-remaining}`
+              : `Submit guess for ${targetName}`}
+      </button>
+      {error && <p className="error">{error}</p>}
+    </form>
+  );
+}
+
+function WaitingPanel({
+  opponents,
+  hasClue,
+  myGuesses,
+}: {
+  opponents: PublicPlayer[];
+  hasClue: string[];
+  myGuesses: { [k: string]: string[] };
+}) {
+  return (
+    <section className="card subtle">
+      <h2>Waiting on</h2>
+      <ul className="opponents">
+        {opponents.map((opp) => {
+          const submitted = hasClue.includes(opp.id);
+          const guessed = Boolean(myGuesses[opp.id]);
+          return (
+            <li key={opp.id}>
+              <span className="player-name">{opp.name}</span>
+              {!submitted ? (
+                <span className="muted small">thinking…</span>
+              ) : guessed ? (
+                <span className="badge">guessed</span>
+              ) : (
+                <span className="badge">clue submitted</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function Standings({ state }: { state: PublicState }) {
+  const ranked = [...state.players].sort((a, b) => b.score - a.score);
+  return (
+    <section className="card subtle">
+      <h2>Standings</h2>
+      <p className="muted small">
+        Names are anonymous until the round ends.
+      </p>
+      <ol className="rank">
+        {ranked.map((p, i) => (
+          <li
+            key={p.id}
+            className={p.id === state.myPlayerId ? "rank-me" : ""}
+          >
+            <span className="rank-pos">{i + 1}</span>
+            <span className="player-name">
+              {p.id === state.myPlayerId ? "You" : p.name}
+            </span>
+            {p.anonymous && p.id !== state.myPlayerId && (
+              <span className="anon-tag small">anon</span>
+            )}
+            <span className="rank-score">{p.score}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
