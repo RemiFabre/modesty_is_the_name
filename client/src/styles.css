@@ -722,10 +722,7 @@ select:focus {
 }
 
 .action-card {
-  position: sticky;
-  bottom: 0;
   background: var(--bg-elev);
-  z-index: 5;
 }
 
 .pool-card {
