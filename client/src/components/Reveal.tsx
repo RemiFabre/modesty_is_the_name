@@ -92,7 +92,7 @@ export function Reveal({ state }: { state: PublicState }) {
 function ProfileResults({ state }: { state: PublicState }) {
   const fb = state.profileFeedback;
   if (!fb) return null;
-  const axisCount = state.settings.profileAxes.length;
+  const axes = state.settings.profileAxes;
   const targets = Object.keys(fb.hits);
   if (targets.length === 0) return null;
 
@@ -100,25 +100,39 @@ function ProfileResults({ state }: { state: PublicState }) {
     <section className="card">
       <h2>Profile guesses</h2>
       <p className="muted small">
-        You only see how many you got right — not which ones.
+        Each axis: green ✓ if your guess was right, red ✗ if not. (+1 each.)
       </p>
-      <ul className="opponents">
+      <ul className="profile-results">
         {targets.map((tid) => {
           const player = state.players.find((p) => p.id === tid);
           if (!player) return null;
-          const hits = fb.hits[tid];
-          const solved = fb.solvedThisRound.includes(tid);
+          const axisHits = fb.hits[tid];
+          const correctCount = axisHits.filter((h) => h).length;
           return (
-            <li key={tid} className={solved ? "reveal-row solved" : "reveal-row"}>
-              <span className="player-name">{player.realName ?? player.name}</span>
-              <span className="hits">
-                {hits} / {axisCount} correct
-              </span>
-              {solved && (
-                <span className="badge host solved-badge">
-                  SOLVED +{state.settings.solveBonus}
+            <li key={tid} className="profile-result">
+              <div className="profile-result-head">
+                <span className="player-name">
+                  {player.realName ?? player.name}
                 </span>
-              )}
+                <span className="muted small">
+                  {correctCount} / {axes.length}
+                </span>
+              </div>
+              <ul className="profile-result-axes">
+                {axes.map((a, i) => (
+                  <li
+                    key={i}
+                    className={axisHits[i] ? "axis-hit" : "axis-miss"}
+                  >
+                    <span className="axis-mark">
+                      {axisHits[i] ? "✓" : "✗"}
+                    </span>
+                    <span className="muted small">
+                      {a.left} ↔ {a.right}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </li>
           );
         })}

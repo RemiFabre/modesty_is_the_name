@@ -141,9 +141,6 @@ export function Round({ state }: { state: PublicState }) {
             count={activity.row.clue.count}
             selected={selected}
             axes={state.settings.profileAxes}
-            alreadySolved={state.me.solvedTargets.includes(
-              activity.row.player.id,
-            )}
             onSubmitted={() => setSelected(new Set())}
           />
         )}
@@ -275,7 +272,6 @@ function GuessAction({
   count,
   selected,
   axes,
-  alreadySolved,
   onSubmitted,
 }: {
   targetId: string;
@@ -283,7 +279,6 @@ function GuessAction({
   count: number;
   selected: ReadonlySet<string>;
   axes: AxisPair[];
-  alreadySolved: boolean;
   onSubmitted: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -326,12 +321,7 @@ function GuessAction({
   return (
     <form className="card action-card" onSubmit={submit}>
       <div className="axes">
-        <h3>
-          Guess {targetName}'s profile{" "}
-          {alreadySolved && (
-            <span className="badge host">already solved</span>
-          )}
-        </h3>
+        <h3>Guess {targetName}'s profile</h3>
         {axes.map((axis, i) => (
           <AxisGuess
             key={i}

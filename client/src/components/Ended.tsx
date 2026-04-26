@@ -45,25 +45,51 @@ export function Ended({ state }: { state: PublicState }) {
         </section>
 
         <section className="card">
-          <h2>True profiles</h2>
+          <h2>True profiles & public-figure accuracy</h2>
           <p className="muted small">
-            Each player's hidden profile is now revealed.
+            Each player got +{state.settings.publicAccuracyBonus} for every axis where the table's rounded read matched their true value.
           </p>
           <ul className="profiles">
             {state.players.map((p) => {
               const truth = trueProfiles[p.id];
+              const acc = state.accuracy?.find((a) => a.playerId === p.id);
               return (
                 <li key={p.id}>
-                  <strong>{p.name}</strong>
+                  <div className="profile-head">
+                    <strong>{p.name}</strong>
+                    {acc && (
+                      <span className="muted small">
+                        +{acc.bonus} bonus
+                      </span>
+                    )}
+                  </div>
                   <ul className="profile-axes">
-                    {axes.map((a, i) => (
-                      <li key={i}>
-                        <span className="muted small">
-                          {a.left} ↔ {a.right}
-                        </span>
-                        <strong>{truth?.[i] ?? "?"}</strong>
-                      </li>
-                    ))}
+                    {axes.map((a, i) => {
+                      const t = truth?.[i];
+                      const r = acc?.roundedPublic[i] ?? null;
+                      const match = acc?.matches[i] ?? false;
+                      return (
+                        <li
+                          key={i}
+                          className={match ? "axis-hit" : "axis-miss"}
+                        >
+                          <span className="muted small">
+                            {a.left} ↔ {a.right}
+                          </span>
+                          <span className="profile-axis-numbers">
+                            <span className="profile-axis-truth">
+                              true: <strong>{t ?? "?"}</strong>
+                            </span>
+                            <span className="profile-axis-pub">
+                              public: <strong>{r ?? "—"}</strong>
+                            </span>
+                            <span className="axis-mark">
+                              {match ? "✓" : "✗"}
+                            </span>
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </li>
               );

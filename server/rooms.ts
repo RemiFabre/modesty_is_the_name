@@ -17,6 +17,7 @@ import {
   type AxisPair,
   type FullClue,
   type Phase,
+  type ProfileAccuracy,
   type ProfileFeedback,
   type PublicClue,
   type PublicNation,
@@ -53,12 +54,8 @@ export interface Player {
   profile: number[];
   /** Clue words this player has used so far in the game, in submission order. */
   clueHistory: string[];
-  /** Player IDs whose profile this player has solved (cumulative across game). */
-  solvedTargets: Set<string>;
-  /** Targets I solved THIS round (consumed at next round start). */
-  solvedThisRound: string[];
-  /** Per-target hits for THIS round (consumed at next round start). */
-  hitsThisRound: Map<string, number>;
+  /** Per-target per-axis correctness for THIS round (consumed at next round start). */
+  hitsThisRound: Map<string, boolean[]>;
 }
 
 export interface Round {
@@ -194,8 +191,6 @@ function makePlayer(name: string, isHost: boolean, bankSeconds: number): Player 
     lastRoundDelta: 0,
     profile: [],
     clueHistory: [],
-    solvedTargets: new Set(),
-    solvedThisRound: [],
     hitsThisRound: new Map(),
   };
 }
@@ -553,7 +548,6 @@ function tryResolveRound(room: Room): void {
   // All guesses in. Compute scores.
   for (const p of room.players) {
     p.lastRoundDelta = 0;
-    p.solvedThisRound = [];
     p.hitsThisRound = new Map();
   }
   for (const guesserId of submitters) {
@@ -571,21 +565,21 @@ function tryResolveRound(room: Room): void {
       target.score += delta;
       target.lastRoundDelta += delta;
 
-      // Profile scoring (Mastermind-style: count + solve bonus).
+      // Profile scoring: per-axis +1 symmetric to both guesser and target.
       const axesGuess = profileInner?.get(targetId);
       if (axesGuess) {
-        let hits = 0;
+        const axisHits: boolean[] = [];
+        let axisCorrect = 0;
         for (let i = 0; i < axesGuess.length; i++) {
-          if (axesGuess[i] === target.profile[i]) hits++;
+          const correct = axesGuess[i] === target.profile[i];
+          axisHits.push(correct);
+          if (correct) axisCorrect++;
         }
-        guesser.hitsThisRound.set(targetId, hits);
-        const solved = hits === axesGuess.length;
-        if (solved && !guesser.solvedTargets.has(targetId)) {
-          guesser.solvedTargets.add(targetId);
-          guesser.solvedThisRound.push(targetId);
-          guesser.score += room.settings.solveBonus;
-          guesser.lastRoundDelta += room.settings.solveBonus;
-        }
+        guesser.hitsThisRound.set(targetId, axisHits);
+        guesser.score += axisCorrect;
+        guesser.lastRoundDelta += axisCorrect;
+        target.score += axisCorrect;
+        target.lastRoundDelta += axisCorrect;
       }
     }
   }
@@ -594,13 +588,14 @@ function tryResolveRound(room: Room): void {
     const c = round.clues.get(p.id);
     if (c) p.clueHistory.push(c.word);
   }
-  // First-to-N detection.
+  // First-to-N detection (based on round-only scores; bonus applied AFTER game ends).
   const target = room.settings.pointsPerPlayer * room.players.length;
   const reachers = room.players.filter((p) => p.score >= target);
   if (reachers.length > 0) {
-    // Highest score wins; ties broken by... order in array (good enough for v1).
-    let winner = reachers[0];
-    for (const p of reachers) {
+    applyPublicAccuracyBonus(room);
+    // Highest final score wins (after bonus). Ties broken by score, then by reaching first.
+    let winner = room.players[0];
+    for (const p of room.players) {
       if (p.score > winner.score) winner = p;
     }
     room.phase = "ended";
@@ -610,6 +605,31 @@ function tryResolveRound(room: Room): void {
   }
   // Round is over — pause everyone's bank.
   closeAllBanks(room, Date.now());
+}
+
+function applyPublicAccuracyBonus(room: Room): void {
+  const numAxes = room.settings.profileAxes.length;
+  for (const target of room.players) {
+    const sums = new Array<number>(numAxes).fill(0);
+    let samples = 0;
+    for (const [guesserId, perTarget] of room.latestProfileGuesses) {
+      if (guesserId === target.id) continue;
+      const guess = perTarget.get(target.id);
+      if (!guess) continue;
+      for (let i = 0; i < numAxes; i++) sums[i] += guess[i];
+      samples++;
+    }
+    if (samples === 0) continue;
+    let matches = 0;
+    for (let i = 0; i < numAxes; i++) {
+      const avg = sums[i] / samples;
+      const rounded = Math.round(avg);
+      if (rounded === target.profile[i]) matches++;
+    }
+    const bonus = matches * room.settings.publicAccuracyBonus;
+    target.score += bonus;
+    target.lastRoundDelta += bonus;
+  }
 }
 
 export function nextRound(room: Room, player: Player): void {
@@ -650,7 +670,6 @@ export function viewFor(room: Room, playerId: string): PublicState {
     guesses: {} as { [k: string]: string[] },
     profileGuesses: myProfileGuessesPublic,
     profile: me?.profile ?? [],
-    solvedTargets: me ? Array.from(me.solvedTargets) : [],
     bankSeconds: me?.bankSeconds ?? 0,
     bankActiveSince: me?.bankActiveSince ?? null,
   };
@@ -717,7 +736,6 @@ export function viewFor(room: Room, playerId: string): PublicState {
       guesses: myGuesses,
       profileGuesses: myProfileGuessesPublic,
       profile: me?.profile ?? [],
-      solvedTargets: me ? Array.from(me.solvedTargets) : [],
       bankSeconds: me?.bankSeconds ?? 0,
       bankActiveSince: me?.bankActiveSince ?? null,
     };
@@ -727,7 +745,6 @@ export function viewFor(room: Room, playerId: string): PublicState {
       guesses: {},
       profileGuesses: myProfileGuessesPublic,
       profile: me?.profile ?? [],
-      solvedTargets: me ? Array.from(me.solvedTargets) : [],
       bankSeconds: me?.bankSeconds ?? 0,
       bankActiveSince: me?.bankActiveSince ?? null,
     };
@@ -746,18 +763,17 @@ export function viewFor(room: Room, playerId: string): PublicState {
     (room.phase === "reveal" || room.phase === "ended") &&
     me.hitsThisRound.size > 0
   ) {
-    const hits: { [k: string]: number } = {};
-    for (const [t, h] of me.hitsThisRound) hits[t] = h;
-    profileFeedback = {
-      hits,
-      solvedThisRound: [...me.solvedThisRound],
-    };
+    const hits: { [k: string]: boolean[] } = {};
+    for (const [t, h] of me.hitsThisRound) hits[t] = [...h];
+    profileFeedback = { hits };
   }
 
   let trueProfiles: { [k: string]: number[] } | undefined;
+  let accuracy: ProfileAccuracy[] | undefined;
   if (room.phase === "ended") {
     trueProfiles = {};
     for (const p of room.players) trueProfiles[p.id] = [...p.profile];
+    accuracy = computeAccuracy(room);
   }
 
   return {
@@ -788,7 +804,45 @@ export function viewFor(room: Room, playerId: string): PublicState {
     nations,
     profileFeedback,
     trueProfiles,
+    accuracy,
   };
+}
+
+function computeAccuracy(room: Room): ProfileAccuracy[] {
+  const numAxes = room.settings.profileAxes.length;
+  return room.players.map((target) => {
+    const sums = new Array<number>(numAxes).fill(0);
+    const samplesPerAxis = new Array<number>(numAxes).fill(0);
+    for (const [guesserId, perTarget] of room.latestProfileGuesses) {
+      if (guesserId === target.id) continue;
+      const guess = perTarget.get(target.id);
+      if (!guess) continue;
+      for (let i = 0; i < numAxes; i++) {
+        sums[i] += guess[i];
+        samplesPerAxis[i]++;
+      }
+    }
+    const roundedPublic: (number | null)[] = [];
+    const matches: boolean[] = [];
+    for (let i = 0; i < numAxes; i++) {
+      if (samplesPerAxis[i] === 0) {
+        roundedPublic.push(null);
+        matches.push(false);
+        continue;
+      }
+      const r = Math.round(sums[i] / samplesPerAxis[i]);
+      roundedPublic.push(r);
+      matches.push(r === target.profile[i]);
+    }
+    const matchCount = matches.filter((m) => m).length;
+    return {
+      playerId: target.id,
+      matches,
+      roundedPublic,
+      truth: [...target.profile],
+      bonus: matchCount * room.settings.publicAccuracyBonus,
+    };
+  });
 }
 
 function buildNation(room: Room, target: Player): PublicNation {

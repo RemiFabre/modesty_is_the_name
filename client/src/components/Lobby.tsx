@@ -105,8 +105,8 @@ export function Lobby({ state }: { state: PublicState }) {
               </strong>
             </li>
             <li>
-              <span>Solve bonus</span>
-              <strong>+{state.settings.solveBonus}</strong>
+              <span>Public-accuracy bonus</span>
+              <strong>+{state.settings.publicAccuracyBonus} per axis (end of game)</strong>
             </li>
             <li>
               <span>Pool size</span>

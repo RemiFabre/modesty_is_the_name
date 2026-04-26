@@ -215,8 +215,8 @@ export interface RoomSettings {
   pointsPerPlayer: number;
   /** The axis pairs for the profile-guessing meta-layer. 3..8 entries. */
   profileAxes: AxisPair[];
-  /** Bonus awarded the first time a player correctly guesses ALL axes of an opponent. */
-  solveBonus: number;
+  /** End-of-game bonus: for each player, +N for each axis where their rounded public figure matches their true profile. */
+  publicAccuracyBonus: number;
 }
 
 export const DEFAULT_SETTINGS: RoomSettings = {
@@ -229,7 +229,7 @@ export const DEFAULT_SETTINGS: RoomSettings = {
   maxBankSeconds: 240,
   pointsPerPlayer: 10,
   profileAxes: DEFAULT_PROFILE_AXES,
-  solveBonus: 5,
+  publicAccuracyBonus: 2,
 };
 
 export const SETTINGS_BOUNDS = {
@@ -239,7 +239,7 @@ export const SETTINGS_BOUNDS = {
   initialBankSeconds: { min: 5, max: 1800 },
   maxBankSeconds: { min: 5, max: 1800 },
   pointsPerPlayer: { min: 1, max: 50 },
-  solveBonus: { min: 0, max: 30 },
+  publicAccuracyBonus: { min: 0, max: 10 },
 };
 
 export const CLUE_COUNT_MIN = 1;
@@ -289,8 +289,6 @@ export interface PublicMe {
   profileGuesses: { [targetId: string]: number[] };
   /** My own profile (always visible to me). */
   profile: number[];
-  /** Player IDs whose profiles I have already solved (cumulative across rounds). */
-  solvedTargets: string[];
   /** Snapshot bank value at the last "close" event. */
   bankSeconds: number;
   /** When non-null, the bank is running (counting down) since this timestamp (server clock). */
@@ -311,10 +309,21 @@ export interface PublicNation {
 }
 
 export interface ProfileFeedback {
-  /** Number of axes correctly guessed for each target last round (only filled in reveal/ended). */
-  hits: { [targetId: string]: number };
-  /** Targets whose profile this player has just SOLVED (became correct this round). */
-  solvedThisRound: string[];
+  /** Per-target, per-axis correctness from the round that just resolved. */
+  hits: { [targetId: string]: boolean[] };
+}
+
+/** End-of-game accuracy summary for one player. */
+export interface ProfileAccuracy {
+  playerId: string;
+  /** Per-axis: was the rounded public figure equal to the true value? */
+  matches: boolean[];
+  /** The rounded public figure used for the comparison. null entries = no opponent had guessed that axis. */
+  roundedPublic: (number | null)[];
+  /** True profile values (revealed at game end). */
+  truth: number[];
+  /** Total bonus this player earned (matches.filter(x=>x).length * publicAccuracyBonus). */
+  bonus: number;
 }
 
 export interface PublicRound {
@@ -346,6 +355,8 @@ export interface PublicState {
   profileFeedback: ProfileFeedback | null;
   /** True profiles of every player. Only present at phase === "ended". */
   trueProfiles?: { [playerId: string]: number[] };
+  /** End-of-game accuracy summary for every player. Only present at phase === "ended". */
+  accuracy?: ProfileAccuracy[];
 }
 
 export interface JoinAck {

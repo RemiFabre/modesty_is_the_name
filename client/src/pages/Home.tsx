@@ -180,10 +180,12 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
                 }
               />
               <NumberField
-                label="Solve bonus"
-                value={settings.solveBonus}
-                bounds={SETTINGS_BOUNDS.solveBonus}
-                onChange={(v) => setSettings((s) => ({ ...s, solveBonus: v }))}
+                label="Public-accuracy bonus / axis"
+                value={settings.publicAccuracyBonus}
+                bounds={SETTINGS_BOUNDS.publicAccuracyBonus}
+                onChange={(v) =>
+                  setSettings((s) => ({ ...s, publicAccuracyBonus: v }))
+                }
               />
             </div>
           )}
