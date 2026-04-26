@@ -2,6 +2,7 @@
   color-scheme: dark;
   --bg: #0e1116;
   --bg-elev: #181d25;
+  --bg-elev-2: #20262f;
   --fg: #e7ebf0;
   --fg-dim: #9aa3ad;
   --accent: #f6c177;
@@ -36,6 +37,8 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100%;
+  max-width: 720px;
+  margin: 0 auto;
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
     env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
@@ -57,8 +60,30 @@ body {
 }
 
 .main {
-  padding: 1rem 1.25rem;
+  padding: 1rem 1.25rem 2rem;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--fg-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 button {
@@ -72,6 +97,31 @@ button {
   font-weight: 600;
 }
 
+button.primary {
+  background: var(--accent);
+  color: #1a1408;
+}
+
+button.primary.big {
+  padding: 1rem 1.25rem;
+  font-size: 1.05rem;
+}
+
+button.ghost {
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+
+button.link {
+  background: transparent;
+  color: var(--accent-2);
+  padding: 0.4rem 0;
+  text-align: left;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -80,15 +130,180 @@ button:disabled {
 input,
 select {
   font: inherit;
-  background: var(--bg-elev);
+  background: var(--bg-elev-2);
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.6rem 0.75rem;
   outline: none;
+  width: 100%;
 }
 
 input:focus,
 select:focus {
   border-color: var(--accent-2);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.field > span {
+  font-size: 0.85rem;
+  color: var(--fg-dim);
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.seg {
+  display: flex;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.seg button {
+  flex: 1;
+  background: transparent;
+  color: var(--fg);
+  font-weight: 500;
+  border-radius: 0;
+  padding: 0.6rem 1rem;
+}
+
+.seg button.seg-on {
+  background: var(--accent);
+  color: #1a1408;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+@media (max-width: 480px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.08em;
+  font-size: 1.1em;
+  background: var(--bg-elev-2);
+  padding: 0.05em 0.4em;
+  border-radius: 6px;
+}
+
+.url-row {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  overflow-x: auto;
+}
+
+.url {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  color: var(--accent-2);
+}
+
+.players {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.players li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-elev-2);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+}
+
+.players li.offline .player-name {
+  color: var(--fg-dim);
+  text-decoration: line-through;
+}
+
+.player-name {
+  font-weight: 500;
+}
+
+.badge {
+  font-size: 0.7rem;
+  background: var(--border);
+  color: var(--fg-dim);
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge.host {
+  background: rgba(246, 193, 119, 0.2);
+  color: var(--accent);
+}
+
+.badge.offline {
+  background: rgba(224, 108, 117, 0.15);
+  color: var(--danger);
+}
+
+.settings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+}
+
+.settings li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings li:last-child {
+  border-bottom: 0;
+}
+
+.settings li span {
+  color: var(--fg-dim);
+}
+
+.error {
+  color: var(--danger);
+  margin: 0.5rem 0 0;
+}
+
+.muted {
+  color: var(--fg-dim);
+}
+
+.center {
+  text-align: center;
+}
+
+.home {
+  gap: 1rem;
 }
