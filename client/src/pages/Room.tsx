@@ -9,6 +9,7 @@ import {
   saveSessionToken,
 } from "../session";
 import { Lobby } from "../components/Lobby";
+import { Round } from "../components/Round";
 
 type JoinStatus =
   | { kind: "needName" }
@@ -159,7 +160,9 @@ function RoomView({ state }: { state: PublicState }) {
   if (state.phase === "lobby") {
     return <Lobby state={state} />;
   }
-  // Other phases land here as we build them.
+  if (state.phase === "round") {
+    return <Round state={state} />;
+  }
   return (
     <div className="app">
       <header className="header">

@@ -31,8 +31,9 @@ export const SETTINGS_BOUNDS = {
 
 export const CLUE_COUNT_MIN = 1;
 export const CLUE_COUNT_MAX = 9;
+export const CLUE_WORD_MAX_LEN = 30;
 
-export type Phase = "lobby" | "clue" | "guess" | "reveal" | "ended";
+export type Phase = "lobby" | "round" | "reveal" | "ended";
 
 export interface PublicPlayer {
   id: string;
@@ -42,6 +43,28 @@ export interface PublicPlayer {
   score: number;
 }
 
+export interface Clue {
+  word: string;
+  count: number;
+  submittedAt: number;
+}
+
+export interface PublicMe {
+  clue: Clue | null;
+  guesses: { [targetId: string]: string[] };
+  bankSeconds: number;
+}
+
+export interface PublicRound {
+  number: number;
+  pool: string[];
+  startedAt: number;
+  // Players who have submitted a clue this round (set of playerIds).
+  hasClue: string[];
+  // Opponents' clues, only visible to me once I've submitted mine.
+  opponentClues: { [playerId: string]: Clue };
+}
+
 export interface PublicState {
   phase: Phase;
   roomCode: string;
@@ -49,7 +72,8 @@ export interface PublicState {
   players: PublicPlayer[];
   myPlayerId: string;
   isHost: boolean;
-  // Phase-specific extension fields will be added in future tasks.
+  me: PublicMe;
+  round: PublicRound | null;
 }
 
 export interface JoinAck {
@@ -87,6 +111,10 @@ export interface ClientToServerEvents {
     cb: (ack: Ack<{ ok: true }>) => void,
   ) => void;
   "room:start": (cb: (ack: Ack<{ ok: true }>) => void) => void;
+  "clue:submit": (
+    payload: { word: string; count: number },
+    cb: (ack: Ack<{ ok: true }>) => void,
+  ) => void;
 }
 
 export interface ServerToClientEvents {

@@ -17,6 +17,7 @@ import {
   joinRoom,
   setSettings,
   startGame,
+  submitClue,
   viewFor,
   type Player,
   type Room,
@@ -102,6 +103,17 @@ io.on("connection", (socket) => {
     try {
       const ctx = mustContext(socket.id);
       startGame(ctx.room, ctx.player);
+      cb({ ok: true });
+      broadcastState(ctx.room);
+    } catch (err) {
+      cb({ ok: false, error: errMsg(err) });
+    }
+  });
+
+  socket.on("clue:submit", ({ word, count }, cb) => {
+    try {
+      const ctx = mustContext(socket.id);
+      submitClue(ctx.room, ctx.player, word, count);
       cb({ ok: true });
       broadcastState(ctx.room);
     } catch (err) {

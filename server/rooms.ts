@@ -1,11 +1,16 @@
 import { customAlphabet } from "nanoid";
 import {
+  CLUE_COUNT_MAX,
+  CLUE_COUNT_MIN,
+  CLUE_WORD_MAX_LEN,
   DEFAULT_SETTINGS,
   SETTINGS_BOUNDS,
+  type Clue,
   type Phase,
   type PublicState,
   type RoomSettings,
 } from "../shared/types.ts";
+import { drawPool } from "./words.ts";
 
 // Avoid characters that can be confused with each other (0/O, 1/I/L).
 const makeRoomCode = customAlphabet("ABCDEFGHJKMNPQRSTUVWXYZ23456789", 5);
@@ -28,12 +33,22 @@ export interface Player {
   bankSeconds: number;
 }
 
+export interface Round {
+  number: number;
+  pool: string[];
+  startedAt: number;
+  clues: Map<string, Clue>; // playerId -> Clue
+  guesses: Map<string, Map<string, string[]>>; // guesserId -> targetId -> picks
+  guessStartedAt: Map<string, Map<string, number>>; // guesserId -> targetId -> ts
+}
+
 export interface Room {
   code: string;
   settings: RoomSettings;
   hostId: string;
   players: Player[];
   phase: Phase;
+  round: Round | null;
   createdAt: number;
 }
 
@@ -105,6 +120,7 @@ export function createRoom(
     hostId: host.id,
     players: [host],
     phase: "lobby",
+    round: null,
     createdAt: Date.now(),
   };
   rooms.set(code, room);
@@ -158,8 +174,78 @@ export function startGame(room: Room, player: Player): void {
   if (!player.isHost) throw new Error("Only the host can start the game");
   if (room.phase !== "lobby") throw new Error("Game already started");
   if (room.players.length < 2) throw new Error("Need at least 2 players to start");
-  room.phase = "clue";
-  // Round/phase setup will be added in the clue-phase task.
+  room.phase = "round";
+  room.round = newRound(room, 1);
+}
+
+function newRound(room: Room, number: number): Round {
+  return {
+    number,
+    pool: drawPool(room.settings.language, room.settings.poolSize),
+    startedAt: Date.now(),
+    clues: new Map(),
+    guesses: new Map(),
+    guessStartedAt: new Map(),
+  };
+}
+
+export function submitClue(
+  room: Room,
+  player: Player,
+  word: string,
+  count: number,
+): void {
+  if (room.phase !== "round" || !room.round) {
+    throw new Error("Not in a round");
+  }
+  if (room.round.clues.has(player.id)) {
+    throw new Error("Already submitted");
+  }
+  const cleaned = word.trim();
+  if (!cleaned) throw new Error("Clue can't be empty");
+  if (cleaned.length > CLUE_WORD_MAX_LEN) {
+    throw new Error(`Clue too long (max ${CLUE_WORD_MAX_LEN} chars)`);
+  }
+  if (
+    !Number.isInteger(count) ||
+    count < CLUE_COUNT_MIN ||
+    count > CLUE_COUNT_MAX
+  ) {
+    throw new Error(`Number must be between ${CLUE_COUNT_MIN} and ${CLUE_COUNT_MAX}`);
+  }
+  const submittedAt = Date.now();
+  const clue: Clue = { word: cleaned, count, submittedAt };
+  room.round.clues.set(player.id, clue);
+  // Open the per-opponent guess windows that are now visible (both clues exist).
+  recordGuessWindowsForPlayer(room, player.id, submittedAt);
+}
+
+function recordGuessWindowsForPlayer(
+  room: Room,
+  playerId: string,
+  now: number,
+): void {
+  if (!room.round) return;
+  for (const [otherId] of room.round.clues) {
+    if (otherId === playerId) continue;
+    openGuessWindow(room, playerId, otherId, now); // I just submitted; open my windows for everyone who already submitted
+    openGuessWindow(room, otherId, playerId, now); // they had submitted; my new clue opens their window for me
+  }
+}
+
+function openGuessWindow(
+  room: Room,
+  guesserId: string,
+  targetId: string,
+  ts: number,
+): void {
+  if (!room.round) return;
+  let inner = room.round.guessStartedAt.get(guesserId);
+  if (!inner) {
+    inner = new Map();
+    room.round.guessStartedAt.set(guesserId, inner);
+  }
+  if (!inner.has(targetId)) inner.set(targetId, ts);
 }
 
 export function attachSocket(room: Room, player: Player, socketId: string): void {
@@ -179,6 +265,42 @@ export function detachSocket(socketId: string): Room | undefined {
 
 export function viewFor(room: Room, playerId: string): PublicState {
   const me = room.players.find((p) => p.id === playerId);
+  const round = room.round;
+  let publicRound = null;
+  let publicMe = {
+    clue: null as Clue | null,
+    guesses: {} as { [k: string]: string[] },
+    bankSeconds: me?.bankSeconds ?? 0,
+  };
+  if (round) {
+    const myClue = round.clues.get(playerId) ?? null;
+    const opponentClues: { [k: string]: Clue } = {};
+    if (myClue) {
+      for (const [pid, clue] of round.clues) {
+        if (pid !== playerId) opponentClues[pid] = clue;
+      }
+    }
+    publicRound = {
+      number: round.number,
+      pool: round.pool,
+      startedAt: round.startedAt,
+      hasClue: Array.from(round.clues.keys()),
+      opponentClues,
+    };
+    const myGuesses: { [k: string]: string[] } = {};
+    const guessesByMe = round.guesses.get(playerId);
+    if (guessesByMe) {
+      for (const [targetId, picks] of guessesByMe) {
+        myGuesses[targetId] = picks;
+      }
+    }
+    publicMe = {
+      clue: myClue,
+      guesses: myGuesses,
+      bankSeconds: me?.bankSeconds ?? 0,
+    };
+  }
+
   return {
     phase: room.phase,
     roomCode: room.code,
@@ -192,5 +314,7 @@ export function viewFor(room: Room, playerId: string): PublicState {
     })),
     myPlayerId: playerId,
     isHost: me?.isHost ?? false,
+    me: publicMe,
+    round: publicRound,
   };
 }
