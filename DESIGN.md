@@ -71,7 +71,8 @@ The minimum viable version. Rules:
 **Phase B — Guess (per opponent, ~60 s each)**
 - As soon as you've submitted your clue, you start seeing the clues of opponents who also submitted, **one at a time**, in submission order.
 - For each opponent's clue `(word, N)`, you must select **exactly N** public words you believe that opponent intended.
-- You cannot skip, you cannot pick fewer or more than N. If you genuinely have no idea, you still have to lock in N picks (or let the timer run out → no points).
+- **v1 (friends playtest):** no timer enforcement. Timers are visual only. We just wait for everyone to submit their picks.
+- **Future enforcement rule (when we add it):** if a player fails to lock in their N picks before time runs out, the resolution is **−N for that player, +0 for the spymaster**. The spymaster doesn't get penalized because of someone else's AFK; the negative is asymmetric so AFK is never strictly better than a bad guess.
 - If no opponent has submitted yet, you wait.
 
 **Scoring (v1, deliberately simple)**
@@ -80,14 +81,27 @@ The minimum viable version. Rules:
 - Symmetric penalties are intentional: they discourage sabotage clues and discourage spite-guessing the leader.
 
 **Time management (v1)**
-- Hard timer for the clue phase (120 s default) and the per-opponent guess phase (60 s default).
-- When a timer hits zero, it goes red and shows negative time — but **does not** auto-submit or auto-skip. The player can still submit late; we don't kick anyone out.
-- A player who fails to submit anything just scores zero for that interaction. The game continues regardless.
-- **Robustness rule (important):** the game must never block on a single player. If someone goes AFK, the round still ends and resolves.
 
-**End of game (v1)**
-- Simplest option: a game is **one round**. After all clues + all guesses + scoring, the game ends and you can start a new one with a new word pool.
-- Alternative we can ship as a setting: first to **50 points**, refreshing the public pool between rounds.
+Two timer concepts, both **display-only in v1** (no auto-submit, no auto-skip, no kick — we're playing with friends in the same room, we just wait):
+
+1. **Per-phase timers** (countdown shown on screen):
+   - Clue phase: **120 s** default.
+   - Per-opponent guess phase: **60 s** default.
+   - When a timer hits zero, it goes red and shows negative time. The player can still submit.
+
+2. **Per-player time bank** (chess-clock-style, BGA-inspired):
+   - Each player has a personal time budget.
+   - Initial: **3 min**, Max: **4 min** (configurable in lobby).
+   - The bank is decremented while the player is in an active phase (still owing a clue, or owing a guess for the current opponent).
+   - When a player completes a phase quickly, leftover time is banked back, capped at the max — so playing fast accrues a small advantage over a long game.
+   - When a bank hits zero, it just shows red. **Not enforced in v1.**
+
+All four values (clue timer, guess timer, initial bank, max bank) are tunable in the lobby.
+
+**Robustness for the future (not v1):** the game must never block on a single player. We'll add this when we go beyond the in-room playtest.
+
+**End of game**
+- **First to N points**, where **N = 10 × number_of_players**. Public pool is refreshed at the start of each new round.
 
 ### 2.3 Anti-sabotage / Nash thoughts
 
@@ -127,6 +141,8 @@ Open question for v1. Two main options:
 - **Living pool.** Words used in the previous round disappear / are replaced by new ones. Sets up the strategic layer described below.
 
 I'd ship **static-per-game** in v1 to keep things simple, and use the living-pool mechanic as the entry point to v2.
+
+(Note: with the first-to-N format, "static per game" actually means **fresh pool per round** — confirmed below in §4.)
 
 ---
 
@@ -179,18 +195,20 @@ This is intentionally hand-wavy — we shouldn't lock it down until v1 has been 
 
 ---
 
-## 4. Open questions / decisions to make before / during v1
+## 4. v1 decisions (locked)
 
-These are things to decide before or during implementation. Not blockers for starting.
-
-1. **Language for the first build.** French or English? (Affects the initial curated word pool.)
-2. **Initial public-pool size.** Codenames uses 25. We probably want something in 16–25.
-3. **Default timers.** 120 s clue, 60 s/opponent guess. Tunable in lobby?
-4. **Number of public words a clue must point to.** Codenames allows 0–9. We probably want a min ≥ 1 and a max around `floor(pool_size / players)` to prevent silliness.
-5. **What does the host see?** Same client as players, with extra "start game / next round" buttons? Or a separate "screen" view designed for projecting on a TV with a QR code?
-6. **Disconnect handling.** If a phone drops Wifi mid-clue: does the player auto-rejoin to the same seat? Socket.IO can do this with a session token in localStorage. v1 nice-to-have.
-7. **One round vs first-to-N.** Default to one round, allow longer in lobby.
-8. **Curated word list for v1.** We need ~200–500 words to seed. There are open lists we can import; I'll suggest options in the implementation step.
+1. **Languages.** Both **English and French** supported. The room creator picks the language at creation time. They get a shareable link; friends clicking the link land in the lobby. The creator presses **Start game** when ready; no further joins after that.
+2. **Public pool size.** **25 words** per round.
+3. **Lobby-tunable values.** Four:
+   - Clue phase timer (default **120 s**)
+   - Per-opponent guess timer (default **60 s**)
+   - Initial per-player time bank (default **3 min**)
+   - Max per-player time bank (default **4 min**)
+4. **Clue number range.** **1–9** (matches Codenames range).
+5. **Host UI.** Identical to player UI **except** the host owns lobby creation and the "Start game" / "Next round" buttons. During gameplay everyone sees the same thing — and importantly **each player only sees their own score**, not others'. End-of-game reveals the full scoreboard.
+6. **Disconnect / reconnect.** Implemented in v1. Socket.IO session token stored in `localStorage` so a player who refreshes or drops Wi-Fi rejoins their seat.
+7. **Game length.** **First to 10 × players** points. Fresh public pool every round.
+8. **Word list.** Authored by us, ~200–500 words per language, biased toward themes that will plug into v2: core values, prosperity / poverty, war / peace, freedom / control, geography, governance, environment, technology. Generic enough to still feel like a fun word-association game.
 
 ---
 
