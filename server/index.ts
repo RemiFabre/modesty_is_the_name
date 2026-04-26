@@ -15,9 +15,11 @@ import {
   getRoom,
   getRoomBySocketId,
   joinRoom,
+  nextRound,
   setSettings,
   startGame,
   submitClue,
+  submitGuess,
   viewFor,
   type Player,
   type Room,
@@ -110,10 +112,32 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("clue:submit", ({ word, count }, cb) => {
+  socket.on("clue:submit", ({ word, intended }, cb) => {
     try {
       const ctx = mustContext(socket.id);
-      submitClue(ctx.room, ctx.player, word, count);
+      submitClue(ctx.room, ctx.player, word, intended);
+      cb({ ok: true });
+      broadcastState(ctx.room);
+    } catch (err) {
+      cb({ ok: false, error: errMsg(err) });
+    }
+  });
+
+  socket.on("guess:submit", ({ targetId, picks }, cb) => {
+    try {
+      const ctx = mustContext(socket.id);
+      submitGuess(ctx.room, ctx.player, targetId, picks);
+      cb({ ok: true });
+      broadcastState(ctx.room);
+    } catch (err) {
+      cb({ ok: false, error: errMsg(err) });
+    }
+  });
+
+  socket.on("round:next", (cb) => {
+    try {
+      const ctx = mustContext(socket.id);
+      nextRound(ctx.room, ctx.player);
       cb({ ok: true });
       broadcastState(ctx.room);
     } catch (err) {

@@ -41,6 +41,17 @@ export interface PublicPlayer {
   connected: boolean;
   isHost: boolean;
   score: number;
+  lastRoundDelta: number;
+  /** True when this is another player and the current viewer should not see their score. */
+  hideScore: boolean;
+}
+
+export interface PublicClue {
+  word: string;
+  count: number;
+  submittedAt: number;
+  /** The clue-giver's secret intended set. Only revealed during reveal/ended phases. */
+  intended?: string[];
 }
 
 export interface Clue {
@@ -49,8 +60,12 @@ export interface Clue {
   submittedAt: number;
 }
 
+export interface FullClue extends Clue {
+  intended: string[];
+}
+
 export interface PublicMe {
-  clue: Clue | null;
+  clue: FullClue | null;
   guesses: { [targetId: string]: string[] };
   bankSeconds: number;
 }
@@ -59,10 +74,12 @@ export interface PublicRound {
   number: number;
   pool: string[];
   startedAt: number;
-  // Players who have submitted a clue this round (set of playerIds).
+  /** Players who have submitted a clue this round. */
   hasClue: string[];
-  // Opponents' clues, only visible to me once I've submitted mine.
-  opponentClues: { [playerId: string]: Clue };
+  /** Opponents' clues. Only visible to me once I've submitted mine. Includes intended[] only during reveal. */
+  opponentClues: { [playerId: string]: PublicClue };
+  /** During the round: only my own guesses. During reveal: everyone's guesses. */
+  allGuesses: { [guesserId: string]: { [targetId: string]: string[] } };
 }
 
 export interface PublicState {
@@ -74,6 +91,8 @@ export interface PublicState {
   isHost: boolean;
   me: PublicMe;
   round: PublicRound | null;
+  /** Set when phase === "ended". */
+  winnerId: string | null;
 }
 
 export interface JoinAck {
@@ -112,9 +131,14 @@ export interface ClientToServerEvents {
   ) => void;
   "room:start": (cb: (ack: Ack<{ ok: true }>) => void) => void;
   "clue:submit": (
-    payload: { word: string; count: number },
+    payload: { word: string; intended: string[] },
     cb: (ack: Ack<{ ok: true }>) => void,
   ) => void;
+  "guess:submit": (
+    payload: { targetId: string; picks: string[] },
+    cb: (ack: Ack<{ ok: true }>) => void,
+  ) => void;
+  "round:next": (cb: (ack: Ack<{ ok: true }>) => void) => void;
 }
 
 export interface ServerToClientEvents {

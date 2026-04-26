@@ -8,7 +8,9 @@ import {
   saveName,
   saveSessionToken,
 } from "../session";
+import { Ended } from "../components/Ended";
 import { Lobby } from "../components/Lobby";
+import { Reveal } from "../components/Reveal";
 import { Round } from "../components/Round";
 
 type JoinStatus =
@@ -157,12 +159,10 @@ export function Room({
 }
 
 function RoomView({ state }: { state: PublicState }) {
-  if (state.phase === "lobby") {
-    return <Lobby state={state} />;
-  }
-  if (state.phase === "round") {
-    return <Round state={state} />;
-  }
+  if (state.phase === "lobby") return <Lobby state={state} />;
+  if (state.phase === "round") return <Round state={state} />;
+  if (state.phase === "reveal") return <Reveal state={state} />;
+  if (state.phase === "ended") return <Ended state={state} />;
   return (
     <div className="app">
       <header className="header">
@@ -170,7 +170,7 @@ function RoomView({ state }: { state: PublicState }) {
         <p className="tagline">Room {state.roomCode}</p>
       </header>
       <main className="main">
-        <p>Phase: {state.phase} (UI for this phase isn't built yet).</p>
+        <p>Unknown phase.</p>
       </main>
     </div>
   );

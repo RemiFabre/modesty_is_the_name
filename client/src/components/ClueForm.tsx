@@ -6,31 +6,38 @@ import {
 } from "../../../shared/types";
 import { getSocket } from "../socket";
 
-const COUNTS = Array.from(
-  { length: CLUE_COUNT_MAX - CLUE_COUNT_MIN + 1 },
-  (_, i) => i + CLUE_COUNT_MIN,
-);
-
-export function ClueForm({ poolMax }: { poolMax: number }) {
+export function ClueForm({
+  selected,
+  onSubmitted,
+}: {
+  selected: ReadonlySet<string>;
+  onSubmitted: () => void;
+}) {
   const [word, setWord] = useState("");
-  const [count, setCount] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const trimmed = word.trim();
-  const canSubmit = trimmed.length > 0 && count !== null && !busy;
+  const count = selected.size;
+  const validCount = count >= CLUE_COUNT_MIN && count <= CLUE_COUNT_MAX;
+  const canSubmit = trimmed.length > 0 && validCount && !busy;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit || count === null) return;
+    if (!canSubmit) return;
     setBusy(true);
     setError(null);
+    const intended = Array.from(selected);
     getSocket().emit(
       "clue:submit",
-      { word: trimmed, count },
+      { word: trimmed, intended },
       (ack) => {
         setBusy(false);
-        if (!ack.ok) setError(ack.error);
+        if (!ack.ok) {
+          setError(ack.error);
+          return;
+        }
+        onSubmitted();
       },
     );
   }
@@ -39,8 +46,8 @@ export function ClueForm({ poolMax }: { poolMax: number }) {
     <form className="card" onSubmit={submit}>
       <h2>Your clue</h2>
       <p className="muted">
-        Pick one word and a number. You're claiming that <em>that many</em>{" "}
-        public words connect to your clue.
+        Tap the public words above that you want others to guess. Then choose a
+        single clue word that connects them.
       </p>
       <label className="field">
         <span>Clue word</span>
@@ -57,31 +64,18 @@ export function ClueForm({ poolMax }: { poolMax: number }) {
           disabled={busy}
         />
       </label>
-      <div className="field">
-        <span>How many public words?</span>
-        <div className="counts">
-          {COUNTS.map((n) => {
-            const exceedsPool = n > poolMax;
-            return (
-              <button
-                key={n}
-                type="button"
-                className={
-                  "count-btn " +
-                  (count === n ? "count-on" : "") +
-                  (exceedsPool ? " count-warn" : "")
-                }
-                onClick={() => setCount(n)}
-                disabled={busy}
-              >
-                {n}
-              </button>
-            );
-          })}
-        </div>
+      <div className="row sel-row">
+        <span className="muted">
+          {count === 0
+            ? "No words selected yet"
+            : `${count} word${count === 1 ? "" : "s"} selected`}
+        </span>
+        {count > CLUE_COUNT_MAX && (
+          <span className="error small">max {CLUE_COUNT_MAX}</span>
+        )}
       </div>
       <button type="submit" className="primary big" disabled={!canSubmit}>
-        {busy ? "Submitting…" : "Submit clue"}
+        {busy ? "Submitting…" : `Submit clue (${count})`}
       </button>
       {error && <p className="error">{error}</p>}
     </form>

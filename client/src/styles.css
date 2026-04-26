@@ -497,3 +497,119 @@ select:focus {
 .small {
   font-size: 0.8rem;
 }
+
+.sel-row {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.delta {
+  margin-left: 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-weight: 700;
+}
+
+.delta.good {
+  color: var(--good);
+}
+
+.delta.bad {
+  color: var(--danger);
+}
+
+.subtle {
+  opacity: 0.85;
+}
+
+.reveal-title {
+  margin: 0.4rem 0 0;
+  font-size: 1.3rem;
+}
+
+.reveal-pool .pool {
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+}
+
+.reveal-pool .word {
+  padding: 0.4rem 0.3rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.reveal-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.reveal-picks {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0 0.4rem 0 auto;
+}
+
+.tag {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tag-good {
+  background: rgba(152, 195, 121, 0.15);
+  border-color: rgba(152, 195, 121, 0.4);
+  color: var(--good);
+}
+
+.tag-bad {
+  background: rgba(224, 108, 117, 0.13);
+  border-color: rgba(224, 108, 117, 0.4);
+  color: var(--danger);
+}
+
+.rank {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  counter-reset: rank;
+}
+
+.rank li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--bg-elev-2);
+  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+}
+
+.rank-pos {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-weight: 700;
+  color: var(--fg-dim);
+  min-width: 1.4rem;
+}
+
+.rank-score {
+  margin-left: auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.rank-winner {
+  background: rgba(246, 193, 119, 0.13);
+  border: 1px solid rgba(246, 193, 119, 0.35);
+}
+
+.rank-me {
+  outline: 1px dashed var(--accent-2);
+}

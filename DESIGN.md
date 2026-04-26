@@ -63,9 +63,9 @@ The minimum viable version. Rules:
 - One language per game, chosen at room creation.
 
 **Phase A — Clue (simultaneous, ~120 s)**
-- Every player **simultaneously** writes a clue: a single word + a number (e.g. `truck, 3`).
-- Meaning: "I'm asserting that exactly N of the public words are connected to my clue word."
-- Free-form text input in v1 — no dictionary check, no anti-cheat. If a player cheats, the table will know.
+- Every player **simultaneously** writes a clue: a single word + a selection of **N public words** (1 ≤ N ≤ 9). The number `N` is implicit (the count of selected words).
+- The clue-giver's selected words are their **secret intended set** — kept hidden from the other players until reveal. They are how the game knows which guesses were "right".
+- Free-form text input in v1 for the clue word — no dictionary check, no anti-cheat. If a player cheats, the table will know.
 - When a player submits their clue, the clock keeps running for the others, but they get a head start on Phase B.
 
 **Phase B — Guess (per opponent, ~60 s each)**
