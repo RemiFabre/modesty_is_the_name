@@ -1,9 +1,12 @@
 import { useState } from "react";
 import {
   DEFAULT_SETTINGS,
+  SCORING_MODE_INFO,
+  SCORING_MODES,
   SETTINGS_BOUNDS,
   type Language,
   type RoomSettings,
+  type ScoringMode,
 } from "../../../shared/types";
 import { getSocket } from "../socket";
 import { loadName, saveName, saveSessionToken } from "../session";
@@ -89,6 +92,27 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
                 Français
               </button>
             </div>
+          </label>
+
+          <label className="field">
+            <span>Scoring</span>
+            <div className="seg">
+              {SCORING_MODES.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={settings.scoring === mode ? "seg-on" : ""}
+                  onClick={() =>
+                    setSettings((s) => ({ ...s, scoring: mode }))
+                  }
+                >
+                  {SCORING_MODE_INFO[mode].label}
+                </button>
+              ))}
+            </div>
+            <span className="muted small">
+              {SCORING_MODE_INFO[settings.scoring].description}
+            </span>
           </label>
 
           <button

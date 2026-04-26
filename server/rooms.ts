@@ -4,12 +4,15 @@ import {
   CLUE_COUNT_MIN,
   CLUE_WORD_MAX_LEN,
   DEFAULT_SETTINGS,
+  riskyReward,
+  SCORING_MODES,
   SETTINGS_BOUNDS,
   type FullClue,
   type Phase,
   type PublicClue,
   type PublicState,
   type RoomSettings,
+  type ScoringMode,
 } from "../shared/types.ts";
 import { drawPool } from "./words.ts";
 
@@ -114,6 +117,9 @@ export function clampSettings(input: Partial<RoomSettings>): RoomSettings {
   if (merged.language !== "en" && merged.language !== "fr") {
     merged.language = DEFAULT_SETTINGS.language;
   }
+  if (!SCORING_MODES.includes(merged.scoring)) {
+    merged.scoring = DEFAULT_SETTINGS.scoring;
+  }
   for (const [key, bounds] of Object.entries(SETTINGS_BOUNDS) as [
     keyof typeof SETTINGS_BOUNDS,
     { min: number; max: number },
@@ -129,6 +135,25 @@ export function clampSettings(input: Partial<RoomSettings>): RoomSettings {
     merged.maxBankSeconds = merged.initialBankSeconds;
   }
   return merged;
+}
+
+/** Per-pair delta applied to BOTH guesser and target, given a scoring mode. */
+function pairDelta(
+  picks: string[],
+  intended: Set<string>,
+  scoring: ScoringMode,
+): number {
+  let hits = 0;
+  for (const p of picks) if (intended.has(p)) hits++;
+  const misses = picks.length - hits;
+  switch (scoring) {
+    case "symmetric":
+      return hits - misses;
+    case "forgiving":
+      return hits;
+    case "risky":
+      return riskyReward(hits) - misses;
+  }
 }
 
 function makePlayer(name: string, isHost: boolean, bankSeconds: number): Player {
@@ -428,12 +453,8 @@ function tryResolveRound(room: Room): void {
     for (const targetId of submitters) {
       if (targetId === guesserId) continue;
       const picks = inner.get(targetId) ?? [];
-      const intended = round.clues.get(targetId)!.intended;
-      const intendedSet = new Set(intended);
-      let hits = 0;
-      for (const w of picks) if (intendedSet.has(w)) hits++;
-      const misses = picks.length - hits;
-      const delta = hits - misses;
+      const intendedSet = new Set(round.clues.get(targetId)!.intended);
+      const delta = pairDelta(picks, intendedSet, room.settings.scoring);
       const guesser = room.players.find((p) => p.id === guesserId)!;
       const target = room.players.find((p) => p.id === targetId)!;
       guesser.score += delta;

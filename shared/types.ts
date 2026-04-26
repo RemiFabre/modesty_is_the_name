@@ -1,7 +1,49 @@
 export type Language = "en" | "fr";
 
+export type ScoringMode = "symmetric" | "forgiving" | "risky";
+
+export const SCORING_MODES: ScoringMode[] = ["symmetric", "forgiving", "risky"];
+
+export interface ScoringModeInfo {
+  id: ScoringMode;
+  label: string;
+  short: string;
+  description: string;
+}
+
+export const SCORING_MODE_INFO: Record<ScoringMode, ScoringModeInfo> = {
+  symmetric: {
+    id: "symmetric",
+    label: "Symmetric",
+    short: "+1 / −1",
+    description:
+      "Each correct word is +1 to both you and the clue-giver. Each incorrect word is −1 to both. Default.",
+  },
+  forgiving: {
+    id: "forgiving",
+    label: "Forgiving",
+    short: "+1 / 0",
+    description:
+      "Each correct word is +1 to both. Wrong picks cost nothing. The lowest-friction mode.",
+  },
+  risky: {
+    id: "risky",
+    label: "Risky",
+    short: "bonus on streaks",
+    description:
+      "Hits scale: 1, 2, 4, 6, 9, 12, 16, 20, 25 for 1..9 correct. Each miss is −1. Big clues are explosive — both ways.",
+  },
+};
+
+/** Total reward for the bundle of `n` hits in risky mode. f(n) = floor((n+1)² / 4). */
+export function riskyReward(n: number): number {
+  if (n <= 0) return 0;
+  return Math.floor(((n + 1) * (n + 1)) / 4);
+}
+
 export interface RoomSettings {
   language: Language;
+  scoring: ScoringMode;
   poolSize: number;
   cluePhaseSeconds: number;
   guessPhaseSeconds: number;
@@ -12,6 +54,7 @@ export interface RoomSettings {
 
 export const DEFAULT_SETTINGS: RoomSettings = {
   language: "en",
+  scoring: "symmetric",
   poolSize: 25,
   cluePhaseSeconds: 120,
   guessPhaseSeconds: 60,

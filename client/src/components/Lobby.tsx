@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { PublicState } from "../../../shared/types";
+import { SCORING_MODE_INFO, type PublicState } from "../../../shared/types";
 import { getSocket } from "../socket";
 
 export function Lobby({ state }: { state: PublicState }) {
@@ -85,6 +85,13 @@ export function Lobby({ state }: { state: PublicState }) {
         <section className="card">
           <h2>Settings</h2>
           <ul className="settings">
+            <li>
+              <span>Scoring</span>
+              <strong>
+                {SCORING_MODE_INFO[state.settings.scoring].label} (
+                {SCORING_MODE_INFO[state.settings.scoring].short})
+              </strong>
+            </li>
             <li>
               <span>Pool size</span>
               <strong>{state.settings.poolSize}</strong>
