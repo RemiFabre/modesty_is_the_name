@@ -146,52 +146,174 @@ I'd ship **static-per-game** in v1 to keep things simple, and use the living-poo
 
 ---
 
-## 3. v2 — The Strategic / Geopolitical Layer
+## 3. v2 Brainstorm — Constraints + Strategic Layer
 
-This is the bigger vision: each player is the leader of a country, their clue is a **public speech**, and the words flowing through the public pool shape both their own country's identity and the global discourse.
+After the first playtest, two things became clear:
 
-### 3.1 Living word pool
+- **The game is too unconstrained.** With 25 freely-pickable words and a 1–9 count, a clue-giver always has many easy combinations. Codenames gets its tension from the fact that only ~8 of the 25 words are "yours" — the rest are deadweight or worse. Modesty needs a similar pressure.
+- **There's no strategic layer yet.** Round-to-round, all that carries over is points. Nothing accumulates, nothing drifts, nothing tells a story. The user's original "country leader / public speech" intuition pointed at this gap; we still don't have a clean mechanic for it.
 
-- Words that were used as clue-targets (i.e. were correctly guessed by at least one player) **leave the public pool** and **migrate into the proposing country's identity**.
-- Each player has a hidden hand of, say, 5 words. At the end of each round, they choose one to **inject** into the public pool, replacing one that left.
-- Pool size stays roughly stable (e.g., 16 ± a few). Some natural drift is fine.
+This section brainstorms both layers. Each layer has multiple concrete options with explicit tradeoffs. None are decided yet. The plan is to playtest v1 with friends, then pick **one tactical option + one strategic option** to add as v1.5, with a third add only if the table says "this is too thin".
 
-This gives players agency over the public discourse: you can push themes you want to use as clues, or that you want others to be forced to engage with.
+### 3.A Tactical constraint mechanics
 
-### 3.2 Country identity & policy axes
+These are alternatives or supplements to "any word, any number 1-9" — the goal is to make clue-giving genuinely hard, like Codenames-spymastering hard.
 
-Each country has a profile on a small number of axes, e.g.:
+#### A1. Asymmetric private maps (Codenames-faithful)
 
-- Peace ↔ War
-- Exploit resources ↔ Preserve environment
-- Freedom ↔ Control
-- Isolation ↔ Engagement
-- Tradition ↔ Progress
+At round start, each player gets their own private map of the 25 public words:
 
-Each word the country has accumulated nudges these sliders. A country built on `forest, river, harvest, peace, child` looks very different from one built on `fire, iron, fortress, command, oath`.
+- ~8 **friends** — only these can be in your intended set. You may not clue toward neutrals or enemies.
+- ~3 **enemies** — heavy penalty if guessed for any opponent's clue (regardless of whether they intended them).
+- ~1 **assassin** — severe penalty if you ever pick it (instant round loss / -10 / etc).
+- rest neutral.
 
-**Open question: how does word → axis mapping happen?** Three options:
+Maps overlap arbitrarily. A word that's a "friend" to Alice might be Bob's "assassin". Maps are private; no one sees yours.
 
-1. **Pre-tagged word list.** Curate a list where every word has axis weights. Total control, full author work, painful to scale and to multilingual.
-2. **Embedding-based.** Use sentence embeddings to project each word onto each axis (e.g., `embedding(word)` projected onto `embedding("war") − embedding("peace")`). Cheap to compute (precomputable), feels magical when it works, occasionally weird. Multilingual is roughly free with multilingual embedding models.
-3. **Player-voted.** At end of each round, all players vote each used word's position on each axis. Closest-to-mean vote earns bonus points (Keynesian beauty contest). This is the most beautiful design: players themselves *define* the public meaning, and there's an incentive to be aligned with the table's perception, not your own.
+**Why it works:** strong, faithful, well-understood pressure on both clue-giving and guessing. The asymmetry is rich because every word means something different to every player.
 
-I lean toward a **hybrid**: pre-compute embedding-based starting weights so the game can run instantly with no input, and let player voting **adjust** them over the course of the game. This gives the meta-mechanic you described (closest-to-average gets points; the proposer's country drifts toward perceived meaning) without requiring votes on every word from turn one.
+**Tradeoffs:**
+- Adds a non-trivial UI: each player needs a private overlay on the pool (color tint per cell, only visible to them).
+- The "intended must be subset of friends" constraint means short-friend players have very few clue options. May feel unfair on bad draws.
+- Anonymity is harder to preserve — patterns in someone's intended set leak which words are their "friends".
 
-### 3.3 Strategic incentives this unlocks
+**Cost to build:** medium. Server-side: per-player map structure, validation in submitClue. Client-side: tinted pool overlay. Reveal screen needs to show all maps.
 
-- **Identity strategy.** A player aiming to win on the "Peace" axis steers their clues toward peace-coded public words.
-- **Adversarial pool seeding.** You inject words into the pool that you can clue around but your opponents can't, or that pull their countries toward axes that hurt their position.
-- **Tactical clue choice.** Sometimes the locally-optimal clue (max guesses) is strategically bad because it pulls your country in the wrong direction.
+#### A2. Forbidden words + favorite words (lite)
 
-### 3.4 v2 scoring sketch (TBD)
+A softer version. Each player has, privately:
+- 3 **forbidden** words you cannot include in your intended set.
+- 3 **favorite** words that grant a +1 bonus if guessed correctly for one of your clues.
 
-Likely a mix of:
-- Round points (the v1 +1 / −1 mechanic).
-- End-of-game bonuses for axis position (e.g., reaching extremes, or matching a private "agenda card" each player drew at game start: "you wanted a country of peace and freedom").
-- Beauty-contest bonuses on word-meaning votes.
+No assassin. Neutrals are still scoreable.
 
-This is intentionally hand-wavy — we shouldn't lock it down until v1 has been played enough to know what feels right.
+**Why it works:** introduces meaningful constraint without the cognitive load of full Codenames-mode. Easy to add on top of v1.
+
+**Tradeoffs:**
+- Less intense than A1 — a clue-giver still has ~22 valid intended choices.
+- Doesn't solve the "war connects to too many words" exploit: bias is private, not public.
+
+**Cost to build:** low. One small private list per player, two lines of validation.
+
+#### A3. Hand-of-clues
+
+Instead of free-form clue word: each player has a hand of K clue words to choose from. Hand replenishes from a deck. The intended set is still free.
+
+**Why it works:** turns clue-giving into a resource-management game. You don't always have the perfect word; you have to make do with what's in hand.
+
+**Tradeoffs:**
+- Different feel from Codenames — closer to a card game.
+- Hand needs to be language-aware and large enough that hands are varied. Authoring overhead.
+- Loses the "free-form clever clue" satisfaction that makes Codenames fun.
+
+**Cost to build:** medium. Card deck structure, draw mechanic, UI for selecting from hand.
+
+**My pick for tactical:** **A1 (asymmetric private maps)** is the most faithful and strongest mechanic, and the user's transcript directly mentioned wanting "full Codenames mode". Worth the implementation cost. A2 is a fallback if A1 feels too heavy after building it.
+
+### 3.B Strategic layer mechanics
+
+These run *across rounds*, giving the game a long-term arc. The user's intuition is that something needs to "drift" or "accumulate" over the game.
+
+#### B1. Private agenda cards
+
+At game start, each player draws **1–2 secret agenda cards**. Each card defines a bonus condition that pays out at game end. Examples:
+- "Score 5+ cumulative points from clues whose intended set contained an animal." (+10)
+- "Successfully clue 3 different food words across the game." (+8)
+- "End the game with the highest score among players who never used a one-word clue twice." (+15)
+- "Accumulate at least 4 'water-related' words into your country." (depends on B2)
+
+Agenda cards are revealed at game end; bonus points are added to scores. Winner = highest after bonuses.
+
+**Why it works:** every player has an additional private goal that biases their play subtly. Watching opponents you can sometimes guess their agenda from their clue patterns — adds a layer of social inference. Very low UI cost.
+
+**Tradeoffs:**
+- Authoring agenda cards is design work — they need to be roughly balanced.
+- Bonus points can swing the game; we need to tune so agendas aren't game-deciding (current points still matter most).
+- Some agendas need word categorization (animals, food, water-related) — depends on having tags.
+
+**Cost to build:** low–medium. Card pool, draw at game start, scoring at game end, UI to display your card during the game (so you remember).
+
+#### B2. Word ownership & themed accumulation
+
+Words you successfully clue (an opponent guesses one) **migrate from the public pool into your country**. Over the game, each player builds up a personal collection. Two scoring tracks:
+
+- **Round points** — current +1/-1 mechanic.
+- **Country score** — at game end, your country is scored against axes (peace/war, freedom/control, etc.) or against your private agenda card (depends on B3).
+
+Combined with **word injection** (B4) the public pool becomes a battleground.
+
+**Why it works:** every clue is a long-term commitment. "I cleverly cluéd this dragon" → now dragon is in my country forever, contributing to my "wartime" axis. There's a real cost to thematically wandering. Creates emergent narratives.
+
+**Tradeoffs:**
+- Requires word→theme/axis mapping (B3 below).
+- The pool shrinks unless words are added back — needs B4 (injection) to balance.
+- More state to track; reveal screens get busier.
+
+**Cost to build:** medium. Per-player country collection, axis aggregation logic, end-of-game scoring.
+
+#### B3. Word→axis tagging strategy
+
+If we go with B2 (ownership) or some agenda cards depend on tags, we need word→axis weights. Three approaches:
+
+| Approach | Effort | Quality | Multilingual |
+|---|---|---|---|
+| **Manually tagged JSON** | Tedious (1000 words × N axes = lots) | Excellent | Per-language work |
+| **Embedding-based** (precomputed) | Low (one-time script) | Good, occasionally weird | Free with multilingual model |
+| **Player-voted** (live) | None upfront | Best (table consensus) | Free, but slow gameplay |
+
+Best path: **embedding-based for v2, player-voted as a v3 enhancement.** The embedding script projects each word onto pre-defined axis pairs (e.g., embedding("peace") − embedding("war")) → produces a [-1, 1] weight. Run once, store in JSON.
+
+#### B4. Word injection
+
+Each player has a private **hand** of K (e.g., 5) words drawn from the language's full word list. Between rounds, each player picks 1 word from their hand to **inject** into the public pool, replacing a word that was used.
+
+**Why it works:** explicit player agency over the public landscape. You push themes you can clue, or that handicap an opponent. Hands replenish from deck. Adds a satisfying decision point each round.
+
+**Tradeoffs:**
+- More game state to manage.
+- Slows down between rounds (a deliberation phase).
+- Could leak agenda information ("Alice keeps injecting nature words").
+
+**Cost to build:** low–medium.
+
+#### B5. Public reputation / live profile
+
+A new idea worth highlighting because it might be the **"missing idea"** the user gestured at.
+
+Each clue you give produces a **public profile vector** for your country, computed from your accumulated successful intentions (using B3 axis weights). The vector is **visible to everyone in real time**. Imagine a small radar chart on each player's name in the lobby/reveal screens.
+
+This means:
+- Your strategy is partially public — anyone can see what kind of country you're building.
+- Other players can read this and *react*: echo your direction (dilute your distinctiveness) or counter-position (push opposite axes).
+- You can fake-signal: deliberately clue against your true agenda for a few rounds to mislead.
+- It creates a *political* dimension where players are constantly reading each other.
+
+**Why it might be the missing piece:** the user's "country leader giving public speeches" framing already implies that the country's direction is *visible*. Codenames is private-information; Modesty's strategic layer becomes interesting precisely because the strategic information is *public* (your accumulated direction) while the tactical information stays private (your hidden agenda card, your asymmetric map).
+
+The mechanic that makes this not flat: your **agenda is private**, but your **profile is public**. So opponents can read where you're going but not why or to what target. This is a clean asymmetry that creates real strategic depth without huge new mechanics.
+
+**Cost to build:** medium. Radar chart component, profile aggregation, real-time updates. Depends on B2 + B3.
+
+### 3.C Recommended combinations
+
+Three coherent v2 packages, smallest to most ambitious:
+
+**v1.5 — minimal gentle bump.** A2 (forbidden + favorites) + B1 (agenda cards). About a weekend's work. Adds private constraint and private long-term goal. Doesn't change the round flow or UI structure.
+
+**v2 — the "ah, I see what you're doing" version.** A1 (asymmetric maps) + B1 (agendas) + B4 (injection). Several days' work. Real Codenames-faithful tactical layer + secret long-term objectives + agency over the pool. Most likely to be a satisfying full game.
+
+**v2.5 — the political version.** A1 + B1 + B2 (ownership) + B3 (embeddings) + B4 + B5 (public profiles). Maybe a week of work. The full "country leader" vision: hidden tactical maps, hidden agendas, public profile evolution, pool injection, themed scoring. High-variance, high-effort, but uniquely yours if it works.
+
+### 3.D Open design questions
+
+These are the questions worth thinking about before committing to any path:
+
+1. **How much asymmetry per round?** A1 with very narrow friend lists is brutal; with wide friend lists it's barely a constraint. Tuning parameter.
+2. **How loud should the agenda be?** If agenda bonuses are 10+, they'll dominate; if 1-2, they're flavor. Probably 5–10% of expected total score.
+3. **Can words be re-clued?** Once a word is in someone's country (B2), can a future round include it again? Probably no — adds pressure, simplifies state.
+4. **Are agendas drawn together or independently?** Drawing from a shared deck means at most one player gets each card → enforces variety. Independent draws can result in two players having identical agendas — interesting in a different way (a race).
+5. **Anonymity vs profile.** B5's public profiles fight v1's per-round anonymity. We may need: profiles are public *only at end of round*, names tied to profiles are revealed alongside the round results.
+6. **Game length.** First-to-N is friendly to short games but B-layer mechanics need 5+ rounds to develop a country. Consider switching to "fixed N rounds, highest score wins" for v2.
 
 ---
 
