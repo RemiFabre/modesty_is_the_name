@@ -372,10 +372,10 @@ export function startGame(room: Room, player: Player): void {
   syncAllBankActivity(room, Date.now());
 }
 
-function newRound(room: Room, number: number): Round {
+function newRound(room: Room, number: number, pool?: string[]): Round {
   return {
     number,
-    pool: drawPool(room.settings.language, room.settings.poolSize),
+    pool: pool ?? drawPool(room.settings.language, room.settings.poolSize),
     startedAt: Date.now(),
     clues: new Map(),
     guesses: new Map(),
@@ -383,6 +383,20 @@ function newRound(room: Room, number: number): Round {
     labels: assignLabels(room.players),
     profileGuesses: new Map(),
   };
+}
+
+/** Compute the next round's pool: keep words that no one targeted, refill the rest with fresh draws. */
+function carryPoolForward(room: Room, prev: Round): string[] {
+  const targeted = new Set<string>();
+  for (const clue of prev.clues.values()) {
+    for (const w of clue.intended) targeted.add(w);
+  }
+  const survivors = prev.pool.filter((w) => !targeted.has(w));
+  const need = room.settings.poolSize - survivors.length;
+  if (need <= 0) return survivors.slice(0, room.settings.poolSize);
+  const exclude = new Set(survivors);
+  const fresh = drawPool(room.settings.language, need, exclude);
+  return [...survivors, ...fresh];
 }
 
 export function submitClue(
@@ -651,8 +665,11 @@ export function nextRound(room: Room, player: Player): void {
   if (!player.isHost) throw new Error("Only the host can advance the round");
   if (room.phase !== "reveal") throw new Error("Round isn't over");
   const next = (room.round?.number ?? 0) + 1;
+  const carriedPool = room.round
+    ? carryPoolForward(room, room.round)
+    : undefined;
   room.phase = "round";
-  room.round = newRound(room, next);
+  room.round = newRound(room, next, carriedPool);
   for (const p of room.players) p.lastRoundDelta = 0;
   syncAllBankActivity(room, Date.now());
 }

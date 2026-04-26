@@ -178,6 +178,10 @@ function InstructionPrompt({ activity }: { activity: Activity }) {
           Tap the public words you want others to find, then type your clue word
           below. Pick between {CLUE_COUNT_MIN} and {CLUE_COUNT_MAX} words.
         </p>
+        <p className="muted small">
+          Heads-up: every word any player picks here is removed from the pool
+          next round and replaced with a fresh one. Words no one targets stay.
+        </p>
       </section>
     );
   }

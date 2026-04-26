@@ -17,14 +17,23 @@ function load(lang: Language): readonly string[] {
   return list;
 }
 
-export function drawPool(lang: Language, size: number): string[] {
+export function drawPool(
+  lang: Language,
+  size: number,
+  exclude?: Set<string>,
+): string[] {
   const list = load(lang);
-  if (size > list.length) {
-    throw new Error(`pool size ${size} exceeds dictionary size ${list.length}`);
+  const candidates = exclude
+    ? list.filter((w) => !exclude.has(w))
+    : list;
+  if (size > candidates.length) {
+    throw new Error(
+      `pool size ${size} exceeds available words (${candidates.length})`,
+    );
   }
   const indices = new Set<number>();
   while (indices.size < size) {
-    indices.add(Math.floor(Math.random() * list.length));
+    indices.add(Math.floor(Math.random() * candidates.length));
   }
-  return Array.from(indices, (i) => list[i]);
+  return Array.from(indices, (i) => candidates[i]);
 }
