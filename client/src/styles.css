@@ -95,6 +95,7 @@ button {
   padding: 0.7rem 1rem;
   cursor: pointer;
   font-weight: 600;
+  min-height: 44px;
 }
 
 button.primary {
@@ -130,13 +131,15 @@ button:disabled {
 input,
 select {
   font: inherit;
+  font-size: 16px; /* prevents iOS Safari auto-zoom on focus */
   background: var(--bg-elev-2);
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.6rem 0.75rem;
+  padding: 0.7rem 0.75rem;
   outline: none;
   width: 100%;
+  min-height: 44px;
 }
 
 input:focus,
@@ -308,6 +311,28 @@ select:focus {
   gap: 1rem;
 }
 
+.conn-banner {
+  position: fixed;
+  top: env(safe-area-inset-top);
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  z-index: 100;
+}
+
+.conn-connecting {
+  background: rgba(136, 192, 208, 0.15);
+  color: var(--accent-2);
+}
+
+.conn-disconnected {
+  background: rgba(224, 108, 117, 0.2);
+  color: var(--danger);
+}
+
 .round-header {
   padding: 0.6rem 1.25rem 0.6rem;
   display: flex;
@@ -377,7 +402,8 @@ select:focus {
 .word {
   font: inherit;
   text-align: center;
-  padding: 0.6rem 0.4rem;
+  padding: 0.7rem 0.4rem;
+  min-height: 48px;
   background: var(--bg-elev-2);
   color: var(--fg);
   border: 1px solid var(--border);
@@ -388,6 +414,9 @@ select:focus {
   cursor: default;
   word-break: break-word;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .word-interactive {

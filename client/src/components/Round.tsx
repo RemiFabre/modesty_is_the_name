@@ -91,9 +91,10 @@ export function Round({ state }: { state: PublicState }) {
   const interactive = activity.kind === "clue" || activity.kind === "guess";
 
   const clueDeadline = round.startedAt + state.settings.cluePhaseSeconds * 1000;
+  const myClueSubmittedAt = myClue?.submittedAt ?? round.startedAt;
   const guessDeadline =
     activity.kind === "guess"
-      ? activity.row.clue.submittedAt +
+      ? Math.max(activity.row.clue.submittedAt, myClueSubmittedAt) +
         state.settings.guessPhaseSeconds * 1000
       : null;
 
