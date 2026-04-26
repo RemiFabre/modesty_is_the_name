@@ -179,6 +179,11 @@ function InstructionPrompt({ activity }: { activity: Activity }) {
           below. Pick between {CLUE_COUNT_MIN} and {CLUE_COUNT_MAX} words.
         </p>
         <p className="muted small">
+          If you can, pick a clue word that fits your private profile —
+          opponents who read your axes right give <strong>you</strong> points
+          too, and there's an end-of-game bonus for being clearly readable.
+        </p>
+        <p className="muted small">
           Heads-up: every word any player picks here is removed from the pool
           next round and replaced with a fresh one. Words no one targets stay.
         </p>
