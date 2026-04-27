@@ -197,24 +197,59 @@ export function clampSettings(input: Partial<RoomSettings>): RoomSettings {
   return merged;
 }
 
-/** Per-pair delta applied to BOTH guesser and target, given a scoring mode. */
+/** Per-pair delta applied to BOTH guesser and target, given a scoring mode.
+ *  When `uniqueness` is non-null, each correctly-guessed pick contributes
+ *  U(w) instead of 1 (originality bonus). Misses always count as 1.
+ *  Result is rounded to the nearest integer. */
 function pairDelta(
   picks: string[],
   intended: Set<string>,
   scoring: ScoringMode,
+  uniqueness: Map<string, number> | null,
 ): number {
+  let hitsWeight = 0;
   let hits = 0;
-  for (const p of picks) if (intended.has(p)) hits++;
+  for (const p of picks) {
+    if (intended.has(p)) {
+      hitsWeight += uniqueness ? (uniqueness.get(p) ?? 1) : 1;
+      hits++;
+    }
+  }
   const misses = picks.length - hits;
+  let raw: number;
   switch (scoring) {
     case "symmetric":
-      return hits - misses;
+      raw = hitsWeight - misses;
+      break;
     case "generous":
-      return 2 * hits - misses;
+      raw = 2 * hitsWeight - misses;
+      break;
     case "precision":
-      // All-or-nothing: if every pick was correct, T(N) reward. Otherwise 0.
-      return misses === 0 ? triangular(hits) : 0;
+      // All-or-nothing: if every pick was correct, reward = sum(U) * (N+1)/2.
+      // With U=1 everywhere this collapses to T(N). With U=0 it collapses to 0.
+      raw = misses === 0 ? (hitsWeight * (picks.length + 1)) / 2 : 0;
+      break;
   }
+  return Math.round(raw);
+}
+
+/** Build the per-word originality weight map for a round.
+ *  U(w) = 1 - (c(w) - 1) / max(N - 1, 1), where c(w) = number of cluers (this
+ *  round) whose intended set contains w, and N = number of cluers. */
+function computeUniqueness(round: Round): Map<string, number> {
+  const cluerCount = new Map<string, number>();
+  for (const [, clue] of round.clues) {
+    for (const w of clue.intended) {
+      cluerCount.set(w, (cluerCount.get(w) ?? 0) + 1);
+    }
+  }
+  const N = round.clues.size;
+  const denom = Math.max(N - 1, 1);
+  const uniqueness = new Map<string, number>();
+  for (const [w, c] of cluerCount) {
+    uniqueness.set(w, 1 - (c - 1) / denom);
+  }
+  return uniqueness;
 }
 
 /**
@@ -690,6 +725,9 @@ function tryResolveRound(room: Room): void {
     p.lastRoundDelta = 0;
     p.hitsThisRound = new Map();
   }
+  const uniqueness = room.settings.originalityBonus
+    ? computeUniqueness(round)
+    : null;
   for (const guesserId of submitters) {
     const inner = round.guesses.get(guesserId)!;
     const profileInner = round.profileGuesses.get(guesserId);
@@ -697,7 +735,7 @@ function tryResolveRound(room: Room): void {
       if (targetId === guesserId) continue;
       const picks = inner.get(targetId) ?? [];
       const intendedSet = new Set(round.clues.get(targetId)!.intended);
-      let delta = pairDelta(picks, intendedSet, room.settings.scoring);
+      let delta = pairDelta(picks, intendedSet, room.settings.scoring, uniqueness);
       // Polyglot cluster bonus: only when EVERY pick is correct AND there are
       // multiple languages active in the room.
       const allCorrect = picks.every((p) => intendedSet.has(p));

@@ -92,6 +92,18 @@ The bonus is computed by partitioning the matched words into "horizontal slices"
 
 The bonus scales naturally with the number of languages and rewards finding tight clusters that span the most languages possible. Single-language pools never trigger this bonus (there are no cross-language clusters to form).
 
+### Originality bonus (optional)
+
+If `originalityBonus` is enabled, every correctly-guessed word `w` is weighted by **how unique that pick was** instead of counting as 1. Concretely, `U(w) = 1 - (c(w) - 1) / max(N - 1, 1)`, where `c(w)` is the number of cluers (this round) whose intended set contained `w` and `N` is the number of cluers. So:
+
+- Only one cluer picked `w` → `U = 1` (full credit).
+- Two cluers picked `w` in a 5-player round → `U = 0.75`.
+- Every cluer picked `w` → `U = 0` (the word carried no information, so it's worth nothing).
+
+The same formula applies inside every scoring mode: in symmetric, `delta = Σ U(w) − misses`; in generous, `2·Σ U(w) − misses`; in precision (all-or-nothing), `delta = Σ U(w) · (N+1)/2`, which collapses to `T(N)` when every word was unique and to 0 when every word was shared. Symmetric to both guesser and clue-giver. Final per-pair delta is rounded to the nearest integer.
+
+The point: discourage convergence on the obvious cluster (everyone clueing "animals" on a pool full of animals) and reward lateral connections nobody else saw.
+
 ## Cheating
 
 Like the **same-family clue word** rule, polyglot mode and the cluster bonus run on good faith. Some patterns are obvious cheating but not enforced by the server:

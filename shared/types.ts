@@ -192,6 +192,15 @@ export interface RoomSettings {
    * words). Symmetric (both guesser and clue-giver). See RULES.md.
    */
   polyglotBonus: boolean;
+  /**
+   * Originality bonus: each correctly-guessed word w contributes a uniqueness
+   * weight U(w) = 1 - (c(w) - 1) / max(N - 1, 1) instead of 1, where c(w) is
+   * the number of cluers (this round) whose intended set contains w and N is
+   * the number of cluers. U=1 = only the target picked it; U=0 = everyone did.
+   * Applies symmetrically to both guesser and target. Discourages convergence
+   * on obvious clusters.
+   */
+  originalityBonus: boolean;
 }
 
 export const DEFAULT_SETTINGS: RoomSettings = {
@@ -208,6 +217,7 @@ export const DEFAULT_SETTINGS: RoomSettings = {
   publicFigures: true,
   publicAccuracyBonus: 2,
   polyglotBonus: false,
+  originalityBonus: false,
 };
 
 export const SETTINGS_BOUNDS = {

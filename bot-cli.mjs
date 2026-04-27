@@ -134,7 +134,7 @@ async function main() {
         "  create --url URL --name NAME [--languages en,fr,es] \\",
         "         [--scoring symmetric|generous|precision] [--profile-mode binary|gradient] \\",
         "         [--points-per-player 18] [--pool-size 20] [--accuracy-bonus 2] \\",
-        "         [--public-figures false] [--polyglot-bonus true] \\",
+        "         [--public-figures false] [--polyglot-bonus true] [--originality-bonus true] \\",
         "         [--axes-json '[{\"left\":\"...\",\"right\":\"...\"}, ...]']",
         "         → prints {playerId, sessionToken, roomCode, state}.",
         "         The creator is the host.",
@@ -196,6 +196,11 @@ async function main() {
     if (args["polyglot-bonus"] !== undefined) {
       settings.polyglotBonus =
         args["polyglot-bonus"] !== "false" && args["polyglot-bonus"] !== "0";
+    }
+    if (args["originality-bonus"] !== undefined) {
+      settings.originalityBonus =
+        args["originality-bonus"] !== "false" &&
+        args["originality-bonus"] !== "0";
     }
     if (args["axes-json"]) {
       try {

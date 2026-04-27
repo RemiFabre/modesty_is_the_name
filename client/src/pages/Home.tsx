@@ -154,6 +154,15 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
             description="When ON, every guess on a player's axes feeds a cumulative average, the 'public figure' shown in the Nations panel during play and at reveal. At game end, each player gets a bonus per axis where their rounded public figure matches the truth (rewards being legible). When OFF, axes still score +1 per matching guess each round, but no cumulative averages are tracked and no end-of-game bonus is awarded."
           />
 
+          <ToggleField
+            label="Originality bonus"
+            value={settings.originalityBonus}
+            onChange={(v) =>
+              setSettings((s) => ({ ...s, originalityBonus: v }))
+            }
+            description="When ON, each correctly-guessed word is weighted by how unique that pick was. If only the target cluer picked the word, it counts for full credit; if every cluer picked it, it counts for 0. Formula: U(w) = 1 - (c-1)/(N-1), where c = cluers who picked w and N = number of cluers. Discourages convergence on the obvious cluster (everyone clueing 'animals' on the same animal pool) and rewards lateral connections nobody else saw."
+          />
+
           {settings.publicFigures && (
             <ProfileAxesEditor
               axes={settings.profileAxes}
