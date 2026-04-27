@@ -11,7 +11,6 @@ import {
   SCORING_MODES,
   SETTINGS_BOUNDS,
   type AxisPair,
-  type Language,
   type RoomSettings,
   type ScoringMode,
 } from "../../../shared/types";
@@ -20,7 +19,6 @@ import { loadName, saveName, saveSessionToken } from "../session";
 
 export function Home({ onCreated }: { onCreated: (code: string) => void }) {
   const [name, setName] = useState(loadName());
-  const [language, setLanguage] = useState<Language>("en");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [settings, setSettings] = useState<RoomSettings>({
     ...DEFAULT_SETTINGS,
@@ -41,7 +39,7 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
     const socket = getSocket();
     socket.emit(
       "room:create",
-      { hostName: trimmed, settings: { ...settings, language } },
+      { hostName: trimmed, settings },
       (ack) => {
         setBusy(false);
         if (!ack.ok) {
@@ -82,17 +80,39 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
         <section className="card">
           <h2>Create a game</h2>
           <label className="field">
-            <span>Language</span>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as Language)}
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l} value={l}>
-                  {LANGUAGE_NAMES[l]}
-                </option>
-              ))}
-            </select>
+            <span>
+              Languages{" "}
+              <span className="muted small">
+                ({settings.languages.length} selected — pool draws roughly
+                equally from each)
+              </span>
+            </span>
+            <div className="lang-grid">
+              {LANGUAGES.map((l) => {
+                const on = settings.languages.includes(l);
+                return (
+                  <button
+                    key={l}
+                    type="button"
+                    className={"lang-chip" + (on ? " lang-on" : "")}
+                    onClick={() =>
+                      setSettings((s) => {
+                        const has = s.languages.includes(l);
+                        if (has && s.languages.length === 1) return s; // keep at least one
+                        return {
+                          ...s,
+                          languages: has
+                            ? s.languages.filter((x) => x !== l)
+                            : [...s.languages, l],
+                        };
+                      })
+                    }
+                  >
+                    {LANGUAGE_NAMES[l]}
+                  </button>
+                );
+              })}
+            </div>
           </label>
 
           <label className="field">

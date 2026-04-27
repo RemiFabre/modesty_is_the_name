@@ -17,6 +17,7 @@ import {
   SCORING_MODES,
   SETTINGS_BOUNDS,
   type AxisPair,
+  type Language,
   type ProfileMode,
   type FullClue,
   type Phase,
@@ -151,8 +152,24 @@ export function getRoomBySocketId(
 
 export function clampSettings(input: Partial<RoomSettings>): RoomSettings {
   const merged: RoomSettings = { ...DEFAULT_SETTINGS, ...input };
-  if (!LANGUAGES.includes(merged.language)) {
-    merged.language = DEFAULT_SETTINGS.language;
+  // Migrate legacy single-language config: { language: "fr" } → { languages: ["fr"] }
+  const rawInput = input as Partial<RoomSettings> & { language?: string };
+  if (
+    typeof rawInput.language === "string" &&
+    (!rawInput.languages || rawInput.languages.length === 0) &&
+    LANGUAGES.includes(rawInput.language as Language)
+  ) {
+    merged.languages = [rawInput.language as Language];
+  }
+  // Validate languages list.
+  if (!Array.isArray(merged.languages) || merged.languages.length === 0) {
+    merged.languages = [...DEFAULT_SETTINGS.languages];
+  }
+  merged.languages = Array.from(
+    new Set(merged.languages.filter((l) => LANGUAGES.includes(l))),
+  );
+  if (merged.languages.length === 0) {
+    merged.languages = [...DEFAULT_SETTINGS.languages];
   }
   if (!SCORING_MODES.includes(merged.scoring)) {
     merged.scoring = DEFAULT_SETTINGS.scoring;
@@ -394,7 +411,7 @@ export function startGame(room: Room, player: Player): void {
 function newRound(room: Room, number: number, pool?: string[]): Round {
   return {
     number,
-    pool: pool ?? drawPool(room.settings.language, room.settings.poolSize),
+    pool: pool ?? drawPool(room.settings.languages, room.settings.poolSize),
     startedAt: Date.now(),
     clues: new Map(),
     guesses: new Map(),
@@ -414,7 +431,7 @@ function carryPoolForward(room: Room, prev: Round): string[] {
   const need = room.settings.poolSize - survivors.length;
   if (need <= 0) return survivors.slice(0, room.settings.poolSize);
   const exclude = new Set(survivors);
-  const fresh = drawPool(room.settings.language, need, exclude);
+  const fresh = drawPool(room.settings.languages, need, exclude);
   return [...survivors, ...fresh];
 }
 

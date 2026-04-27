@@ -108,7 +108,7 @@ Don't poll faster than once every 2 seconds.
 Inputs: `round.pool` (25 words), `me.profile` (your axis values), `settings.profileAxes`.
 
 Process:
-1. Cluster the pool by semantic relatedness in your head. Find a tight 2–4-word cluster you can name with a single word.
+1. Cluster the pool by semantic relatedness in your head. Find a tight 2–4-word cluster you can name with a single word. **Polyglot games**: `state.settings.languages` may contain multiple languages — the pool will be a mix. Cluster across languages freely; your clue word can be in *any* of those languages and target *any* mix of words from any language. Cross-language semantic links (e.g. an English clue binding `wave` + Spanish `marea` + French `port`) are *encouraged* — they're the most expressive plays.
 2. **Bias the cluster toward your profile.** If your `me.profile[i] = 5` on an axis labeled `Hero ↔ Villain` (5 = villain), prefer clusters with darker / more antagonistic flavor. The cleaner you express your profile, the more profile points you'll earn.
 3. Pick the clue word: a single common noun (or any single token, free-form) that connects the cluster. Avoid obvious morphological neighbors of pool words (e.g. don't clue "warlike" if "war" is in the pool).
 4. Output: `clue --word "yourword" --intended "w1,w2,w3"`.
@@ -250,6 +250,13 @@ values change how you cluéd, or how you read others?
 The pool is `state.settings.poolSize` words. Did it feel too large
 (diluted clusters) or too small (forced overlap)? Suggest the
 ideal size for the constraint level we're playing at.
+
+## Polyglot feedback (only if `state.settings.languages.length > 1`)
+The pool drew from multiple languages. Did the polyglot mix
+make cluing harder, easier, or just different? Did you successfully
+clue across language boundaries (e.g. an English clue picking up a
+Spanish word in the pool)? Was the rough-equal-per-language
+distribution apparent? Anything you'd change?
 
 ## Pacing & abstract observations
 How did the game feel? Too fast? Too slow? Did the strategic layer

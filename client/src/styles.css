@@ -200,6 +200,29 @@ select:focus {
   color: #1a1408;
 }
 
+.lang-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.lang-chip {
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  min-height: 36px;
+}
+
+.lang-chip.lang-on {
+  background: var(--accent);
+  color: #1a1408;
+  border-color: var(--accent);
+}
+
 .settings-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

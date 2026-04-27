@@ -49,7 +49,9 @@ export function Lobby({ state }: { state: PublicState }) {
         <h1>Lobby</h1>
         <p className="tagline">
           Room <strong className="code">{state.roomCode}</strong> ·{" "}
-          {LANGUAGE_NAMES[state.settings.language]}
+          {state.settings.languages
+            .map((l) => LANGUAGE_NAMES[l])
+            .join(" / ")}
         </p>
       </header>
       <main className="main">

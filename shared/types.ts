@@ -162,7 +162,9 @@ export function riskyReward(n: number): number {
 }
 
 export interface RoomSettings {
-  language: Language;
+  /** One or more languages to draw the public pool from. The pool samples
+   *  roughly equally from each. Players may clue in any of them. */
+  languages: Language[];
   scoring: ScoringMode;
   poolSize: number;
   cluePhaseSeconds: number;
@@ -179,7 +181,7 @@ export interface RoomSettings {
 }
 
 export const DEFAULT_SETTINGS: RoomSettings = {
-  language: "en",
+  languages: ["en"],
   scoring: "symmetric",
   poolSize: 20,
   cluePhaseSeconds: 120,

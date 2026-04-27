@@ -131,12 +131,13 @@ async function main() {
         "Most commands need --token TOKEN (returned by `join` or `create`).",
         "",
         "Commands:",
-        "  create --url URL --name NAME [--language en] [--scoring symmetric] \\",
+        "  create --url URL --name NAME [--languages en,fr,es] [--scoring symmetric] \\",
         "         [--profile-mode binary] [--points-per-player 18] [--pool-size 20] \\",
         "         [--accuracy-bonus 2] \\",
         "         [--axes-json '[{\"left\":\"...\",\"right\":\"...\"}, ...]']",
         "         → prints {playerId, sessionToken, roomCode, state}.",
-        "         The creator is the host.",
+        "         The creator is the host. --languages is comma-separated for polyglot games",
+        "         (pool draws roughly equally from each language).",
         "  join   --url URL --room CODE --name NAME",
         "         → prints {playerId, sessionToken, roomCode, state}",
         "  status --url URL --room CODE --token TOKEN",
@@ -169,7 +170,14 @@ async function main() {
       lastState = s;
     });
     const settings = {};
-    if (args.language) settings.language = args.language;
+    if (args.languages) {
+      settings.languages = args.languages
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    } else if (args.language) {
+      settings.languages = [args.language];
+    }
     if (args.scoring) settings.scoring = args.scoring;
     if (args["profile-mode"]) settings.profileMode = args["profile-mode"];
     if (args["points-per-player"]) {
