@@ -1,4 +1,4 @@
-# Modesty is the Name — Design Document
+# Modesty is the Name: Design Document
 
 A simultaneous-play, word-association party game inspired by Codenames, designed to be played in the browser on phones. Open source, no monetization.
 
@@ -12,7 +12,7 @@ This document captures the v1 spec, the longer-term strategic vision, the open q
 
 Should we build a Node.js web server + cloudflared tunnel (the same setup used on the previous board game project), or build native Android / iOS apps?
 
-### Recommendation: web app, hosted via Node.js + cloudflared for now
+### Recommendation: web app: hosted via Node.js + cloudflared for now
 
 For this project specifically, the web-app path is the right call. Reasons, in order of importance:
 
@@ -22,7 +22,7 @@ For this project specifically, the web-app path is the right call. Reasons, in o
 4. **Cloudflared tunnel is excellent for playtests.** Free, no port-forwarding or hosting account needed, gives you a public HTTPS URL pointing at `localhost:3000`. We can later move to a real host (Fly.io / Railway / Render / Cloudflare Workers) once the rules stabilize, without rewriting the app.
 5. **Open-source-friendly.** No App Store gatekeeping, no developer account fees, no review delays.
 
-Native apps (React Native, Flutter, Swift, Kotlin) would multiply the timeline by 5–10× for a worse outcome here. If down the road you want a richer native experience, a web app can be wrapped in Capacitor or shipped as a PWA — that bridge exists when/if you need it.
+Native apps (React Native, Flutter, Swift, Kotlin) would multiply the timeline by 5–10× for a worse outcome here. If down the road you want a richer native experience, a web app can be wrapped in Capacitor or shipped as a PWA, that bridge exists when/if you need it.
 
 ### Concrete stack
 
@@ -32,13 +32,13 @@ Native apps (React Native, Flutter, Swift, Kotlin) would multiply the timeline b
   - Rationale: React's component model fits the "lobby → entry phase → guessing phase → scoring" state machine cleanly. TypeScript catches a whole class of bugs that would otherwise show up mid-playtest. Vite gives us instant HMR.
   - Alternative considered: plain HTML/JS. Faster to start, but the UI has enough state (timers, per-opponent guess panels, animations between phases) that a framework will pay for itself within the first few hours.
   - Alternative considered: Svelte. Equally good choice; React picked only for ecosystem familiarity.
-- **State:** In-memory on the Node server. No database for v1 — a game lives as long as the process. Good enough for parties; we can add Redis or SQLite persistence later if you want to support reconnects across restarts.
+- **State:** In-memory on the Node server. No database for v1, a game lives as long as the process. Good enough for parties; we can add Redis or SQLite persistence later if you want to support reconnects across restarts.
 - **Game rooms:** Each game has a short room code (e.g. `BAOBAB`). Host creates a room, others join via URL like `https://<tunnel>.trycloudflare.com/r/BAOBAB`.
 - **Local dev:** `npm start` runs server on `:3000`, `cloudflared tunnel --url http://localhost:3000` exposes it. We may script this as `npm run tunnel` for convenience.
 
 ### What I'd defer
 
-- **Authentication.** Not needed — players just pick a name when they join the room.
+- **Authentication.** Not needed, players just pick a name when they join the room.
 - **Persistence.** Games are ephemeral.
 - **Spectator mode, replay, stats.** All "v2 if we like the game".
 - **Mobile-app shell.** Pure web first; PWA manifest is a 10-minute add later.
@@ -49,11 +49,11 @@ Native apps (React Native, Flutter, Swift, Kotlin) would multiply the timeline b
 
 ### 2.1 Core idea
 
-Codenames has a great central mechanic — finding semantic links between words — but suffers from **role asymmetry**: two players (the spymasters) do nearly all the thinking while the rest wait. Modesty is the Name keeps the word-association mechanic but makes **everyone play simultaneously, every turn.** Every player is both a clue-giver and a guesser, every round.
+Codenames has a great central mechanic, finding semantic links between words, but suffers from **role asymmetry**: two players (the spymasters) do nearly all the thinking while the rest wait. Modesty is the Name keeps the word-association mechanic but makes **everyone play simultaneously, every turn.** Every player is both a clue-giver and a guesser, every round.
 
-This will probably make the game more "try-hard" / focused than Codenames. We accept that tradeoff: this is not the game you put on the table for a casual family Sunday — it's the game you play with friends who like word games.
+This will probably make the game more "try-hard" / focused than Codenames. We accept that tradeoff: this is not the game you put on the table for a casual family Sunday, it's the game you play with friends who like word games.
 
-### 2.2 v1 — Simultaneous Codenames
+### 2.2 v1: Simultaneous Codenames
 
 The minimum viable version. Rules:
 
@@ -62,13 +62,13 @@ The minimum viable version. Rules:
 - A pool of **public words** in the center, e.g. 16–25 words drawn from a curated list, visible to everyone.
 - One language per game, chosen at room creation.
 
-**Phase A — Clue (simultaneous, ~120 s)**
+**Phase A, Clue (simultaneous, ~120 s)**
 - Every player **simultaneously** writes a clue: a single word + a selection of **N public words** (1 ≤ N ≤ 9). The number `N` is implicit (the count of selected words).
-- The clue-giver's selected words are their **secret intended set** — kept hidden from the other players until reveal. They are how the game knows which guesses were "right".
-- Free-form text input in v1 for the clue word — no dictionary check, no anti-cheat. If a player cheats, the table will know.
+- The clue-giver's selected words are their **secret intended set**, kept hidden from the other players until reveal. They are how the game knows which guesses were "right".
+- Free-form text input in v1 for the clue word, no dictionary check, no anti-cheat. If a player cheats, the table will know.
 - When a player submits their clue, the clock keeps running for the others, but they get a head start on Phase B.
 
-**Phase B — Guess (per opponent, ~60 s each)**
+**Phase B, Guess (per opponent, ~60 s each)**
 - As soon as you've submitted your clue, you start seeing the clues of opponents who also submitted, **one at a time**, in submission order.
 - For each opponent's clue `(word, N)`, you must select **exactly N** public words you believe that opponent intended.
 - **v1 (friends playtest):** no timer enforcement. Timers are visual only. We just wait for everyone to submit their picks.
@@ -82,7 +82,7 @@ The minimum viable version. Rules:
 
 **Time management (v1)**
 
-Two timer concepts, both **display-only in v1** (no auto-submit, no auto-skip, no kick — we're playing with friends in the same room, we just wait):
+Two timer concepts, both **display-only in v1** (no auto-submit, no auto-skip, no kick, we're playing with friends in the same room, we just wait):
 
 1. **Per-phase timers** (countdown shown on screen):
    - Clue phase: **120 s** default.
@@ -93,7 +93,7 @@ Two timer concepts, both **display-only in v1** (no auto-submit, no auto-skip, n
    - Each player has a personal time budget.
    - Initial: **3 min**, Max: **4 min** (configurable in lobby).
    - The bank is decremented while the player is in an active phase (still owing a clue, or owing a guess for the current opponent).
-   - When a player completes a phase quickly, leftover time is banked back, capped at the max — so playing fast accrues a small advantage over a long game.
+   - When a player completes a phase quickly, leftover time is banked back, capped at the max, so playing fast accrues a small advantage over a long game.
    - When a bank hits zero, it just shows red. **Not enforced in v1.**
 
 All four values (clue timer, guess timer, initial bank, max bank) are tunable in the lobby.
@@ -101,15 +101,15 @@ All four values (clue timer, guess timer, initial bank, max bank) are tunable in
 **Robustness for the future (not v1):** the game must never block on a single player. We'll add this when we go beyond the in-room playtest.
 
 **End of game**
-- **First to N points**, where **N = 10 × number_of_players**. Public pool is refreshed at the start of each new round.
+- **First to N points**: where **N = 10 × number_of_players**. Public pool is refreshed at the start of each new round.
 
 ### 2.3 Anti-sabotage / Nash thoughts
 
 A real concern: as someone approaches victory, others are tempted to give nonsense clues so they can't be guessed (denying the leader points), and to spite-guess the leader's clue.
 
-The symmetric −1/+1 scoring already discourages this somewhat — you hurt yourself when you sabotage. We should **see how the symmetric scoring plays out before adding bonuses**. If sabotage is still common, candidate fixes:
+The symmetric −1/+1 scoring already discourages this somewhat, you hurt yourself when you sabotage. We should **see how the symmetric scoring plays out before adding bonuses**. If sabotage is still common, candidate fixes:
 
-- **Best-guesser bonus:** the player with the highest guess accuracy this round gets +X bonus points. Creates a "defector" incentive — even if the table agrees to throw, one player's secret strategy is to play honestly and scoop the bonus.
+- **Best-guesser bonus:** the player with the highest guess accuracy this round gets +X bonus points. Creates a "defector" incentive, even if the table agrees to throw, one player's secret strategy is to play honestly and scoop the bonus.
 - **Threshold bonus:** finding all of an opponent's words gets a bonus (+2 maybe), making "I'll guess two right and one wrong on purpose" suboptimal.
 
 I'd ship v1 with neither of these and add them only if playtests show sabotage is dominant.
@@ -125,15 +125,15 @@ You asked how robust this could be. Honest answer:
   - Implementation cost: small. A `Set<string>` lookup per submission.
 
 - **Same-family check (is the clue too close to a public word?)** Genuinely hard.
-  - Stemming (Porter / Snowball) is fast but coarse — `universe`/`university` collide, `sing`/`singer` may or may not depending on the stemmer.
+  - Stemming (Porter / Snowball) is fast but coarse, `universe`/`university` collide, `sing`/`singer` may or may not depending on the stemmer.
   - Lemmatization is better but needs language-specific resources and still misses semantic variants.
   - Edit-distance heuristics (Levenshtein < 2) catch typos but miss `dog`/`puppy` and falsely flag `cat`/`car`.
   - Realistic robust approach: lemmatize + a small curated denylist. Manageable for one language, painful for many.
   - **My recommendation: don't ship this in v1 at all.** It will produce false rejections that frustrate players more than the rare cheat it catches. Ship it as a v2 feature with a per-language toggle.
 
-- **Multilingual scope.** One language per game, chosen at room creation. No mixing. Word pool comes from a per-language curated list (we'll start with one — let's say French or English, your call).
+- **Multilingual scope.** One language per game, chosen at room creation. No mixing. Word pool comes from a per-language curated list (we'll start with one, let's say French or English, your call).
 
-### 2.5 Public word pool — composition and refresh
+### 2.5 Public word pool: composition and refresh
 
 Open question for v1. Two main options:
 
@@ -142,30 +142,30 @@ Open question for v1. Two main options:
 
 I'd ship **static-per-game** in v1 to keep things simple, and use the living-pool mechanic as the entry point to v2.
 
-(Note: with the first-to-N format, "static per game" actually means **fresh pool per round** — confirmed below in §4.)
+(Note: with the first-to-N format, "static per game" actually means **fresh pool per round**, confirmed below in §4.)
 
 ---
 
-## 3. v2 Brainstorm — Constraints + Strategic Layer
+## 3. v2 Brainstorm: Constraints + Strategic Layer
 
 After the first playtest, two things became clear:
 
-- **The game is too unconstrained.** With 25 freely-pickable words and a 1–9 count, a clue-giver always has many easy combinations. Codenames gets its tension from the fact that only ~8 of the 25 words are "yours" — the rest are deadweight or worse. Modesty needs a similar pressure.
+- **The game is too unconstrained.** With 25 freely-pickable words and a 1–9 count, a clue-giver always has many easy combinations. Codenames gets its tension from the fact that only ~8 of the 25 words are "yours", the rest are deadweight or worse. Modesty needs a similar pressure.
 - **There's no strategic layer yet.** Round-to-round, all that carries over is points. Nothing accumulates, nothing drifts, nothing tells a story. The user's original "country leader / public speech" intuition pointed at this gap; we still don't have a clean mechanic for it.
 
 This section brainstorms both layers. Each layer has multiple concrete options with explicit tradeoffs. None are decided yet. The plan is to playtest v1 with friends, then pick **one tactical option + one strategic option** to add as v1.5, with a third add only if the table says "this is too thin".
 
 ### 3.A Tactical constraint mechanics
 
-These are alternatives or supplements to "any word, any number 1-9" — the goal is to make clue-giving genuinely hard, like Codenames-spymastering hard.
+These are alternatives or supplements to "any word, any number 1-9", the goal is to make clue-giving genuinely hard, like Codenames-spymastering hard.
 
 #### A1. Asymmetric private maps (Codenames-faithful)
 
 At round start, each player gets their own private map of the 25 public words:
 
-- ~8 **friends** — only these can be in your intended set. You may not clue toward neutrals or enemies.
-- ~3 **enemies** — heavy penalty if guessed for any opponent's clue (regardless of whether they intended them).
-- ~1 **assassin** — severe penalty if you ever pick it (instant round loss / -10 / etc).
+- ~8 **friends**, only these can be in your intended set. You may not clue toward neutrals or enemies.
+- ~3 **enemies**, heavy penalty if guessed for any opponent's clue (regardless of whether they intended them).
+- ~1 **assassin**, severe penalty if you ever pick it (instant round loss / -10 / etc).
 - rest neutral.
 
 Maps overlap arbitrarily. A word that's a "friend" to Alice might be Bob's "assassin". Maps are private; no one sees yours.
@@ -175,7 +175,7 @@ Maps overlap arbitrarily. A word that's a "friend" to Alice might be Bob's "assa
 **Tradeoffs:**
 - Adds a non-trivial UI: each player needs a private overlay on the pool (color tint per cell, only visible to them).
 - The "intended must be subset of friends" constraint means short-friend players have very few clue options. May feel unfair on bad draws.
-- Anonymity is harder to preserve — patterns in someone's intended set leak which words are their "friends".
+- Anonymity is harder to preserve, patterns in someone's intended set leak which words are their "friends".
 
 **Cost to build:** medium. Server-side: per-player map structure, validation in submitClue. Client-side: tinted pool overlay. Reveal screen needs to show all maps.
 
@@ -190,7 +190,7 @@ No assassin. Neutrals are still scoreable.
 **Why it works:** introduces meaningful constraint without the cognitive load of full Codenames-mode. Easy to add on top of v1.
 
 **Tradeoffs:**
-- Less intense than A1 — a clue-giver still has ~22 valid intended choices.
+- Less intense than A1, a clue-giver still has ~22 valid intended choices.
 - Doesn't solve the "war connects to too many words" exploit: bias is private, not public.
 
 **Cost to build:** low. One small private list per player, two lines of validation.
@@ -202,7 +202,7 @@ Instead of free-form clue word: each player has a hand of K clue words to choose
 **Why it works:** turns clue-giving into a resource-management game. You don't always have the perfect word; you have to make do with what's in hand.
 
 **Tradeoffs:**
-- Different feel from Codenames — closer to a card game.
+- Different feel from Codenames, closer to a card game.
 - Hand needs to be language-aware and large enough that hands are varied. Authoring overhead.
 - Loses the "free-form clever clue" satisfaction that makes Codenames fun.
 
@@ -224,12 +224,12 @@ At game start, each player draws **1–2 secret agenda cards**. Each card define
 
 Agenda cards are revealed at game end; bonus points are added to scores. Winner = highest after bonuses.
 
-**Why it works:** every player has an additional private goal that biases their play subtly. Watching opponents you can sometimes guess their agenda from their clue patterns — adds a layer of social inference. Very low UI cost.
+**Why it works:** every player has an additional private goal that biases their play subtly. Watching opponents you can sometimes guess their agenda from their clue patterns, adds a layer of social inference. Very low UI cost.
 
 **Tradeoffs:**
-- Authoring agenda cards is design work — they need to be roughly balanced.
+- Authoring agenda cards is design work, they need to be roughly balanced.
 - Bonus points can swing the game; we need to tune so agendas aren't game-deciding (current points still matter most).
-- Some agendas need word categorization (animals, food, water-related) — depends on having tags.
+- Some agendas need word categorization (animals, food, water-related), depends on having tags.
 
 **Cost to build:** low–medium. Card pool, draw at game start, scoring at game end, UI to display your card during the game (so you remember).
 
@@ -237,8 +237,8 @@ Agenda cards are revealed at game end; bonus points are added to scores. Winner 
 
 Words you successfully clue (an opponent guesses one) **migrate from the public pool into your country**. Over the game, each player builds up a personal collection. Two scoring tracks:
 
-- **Round points** — current +1/-1 mechanic.
-- **Country score** — at game end, your country is scored against axes (peace/war, freedom/control, etc.) or against your private agenda card (depends on B3).
+- **Round points**: current +1/-1 mechanic.
+- **Country score**: at game end, your country is scored against axes (peace/war, freedom/control, etc.) or against your private agenda card (depends on B3).
 
 Combined with **word injection** (B4) the public pool becomes a battleground.
 
@@ -246,7 +246,7 @@ Combined with **word injection** (B4) the public pool becomes a battleground.
 
 **Tradeoffs:**
 - Requires word→theme/axis mapping (B3 below).
-- The pool shrinks unless words are added back — needs B4 (injection) to balance.
+- The pool shrinks unless words are added back, needs B4 (injection) to balance.
 - More state to track; reveal screens get busier.
 
 **Cost to build:** medium. Per-player country collection, axis aggregation logic, end-of-game scoring.
@@ -283,7 +283,7 @@ A new idea worth highlighting because it might be the **"missing idea"** the use
 Each clue you give produces a **public profile vector** for your country, computed from your accumulated successful intentions (using B3 axis weights). The vector is **visible to everyone in real time**. Imagine a small radar chart on each player's name in the lobby/reveal screens.
 
 This means:
-- Your strategy is partially public — anyone can see what kind of country you're building.
+- Your strategy is partially public, anyone can see what kind of country you're building.
 - Other players can read this and *react*: echo your direction (dilute your distinctiveness) or counter-position (push opposite axes).
 - You can fake-signal: deliberately clue against your true agenda for a few rounds to mislead.
 - It creates a *political* dimension where players are constantly reading each other.
@@ -298,11 +298,11 @@ The mechanic that makes this not flat: your **agenda is private**, but your **pr
 
 Three coherent v2 packages, smallest to most ambitious:
 
-**v1.5 — minimal gentle bump.** A2 (forbidden + favorites) + B1 (agenda cards). About a weekend's work. Adds private constraint and private long-term goal. Doesn't change the round flow or UI structure.
+**v1.5, minimal gentle bump.** A2 (forbidden + favorites) + B1 (agenda cards). About a weekend's work. Adds private constraint and private long-term goal. Doesn't change the round flow or UI structure.
 
-**v2 — the "ah, I see what you're doing" version.** A1 (asymmetric maps) + B1 (agendas) + B4 (injection). Several days' work. Real Codenames-faithful tactical layer + secret long-term objectives + agency over the pool. Most likely to be a satisfying full game.
+**v2, the "ah, I see what you're doing" version.** A1 (asymmetric maps) + B1 (agendas) + B4 (injection). Several days' work. Real Codenames-faithful tactical layer + secret long-term objectives + agency over the pool. Most likely to be a satisfying full game.
 
-**v2.5 — the political version.** A1 + B1 + B2 (ownership) + B3 (embeddings) + B4 + B5 (public profiles). Maybe a week of work. The full "country leader" vision: hidden tactical maps, hidden agendas, public profile evolution, pool injection, themed scoring. High-variance, high-effort, but uniquely yours if it works.
+**v2.5, the political version.** A1 + B1 + B2 (ownership) + B3 (embeddings) + B4 + B5 (public profiles). Maybe a week of work. The full "country leader" vision: hidden tactical maps, hidden agendas, public profile evolution, pool injection, themed scoring. High-variance, high-effort, but uniquely yours if it works.
 
 ### 3.D Open design questions
 
@@ -310,8 +310,8 @@ These are the questions worth thinking about before committing to any path:
 
 1. **How much asymmetry per round?** A1 with very narrow friend lists is brutal; with wide friend lists it's barely a constraint. Tuning parameter.
 2. **How loud should the agenda be?** If agenda bonuses are 10+, they'll dominate; if 1-2, they're flavor. Probably 5–10% of expected total score.
-3. **Can words be re-clued?** Once a word is in someone's country (B2), can a future round include it again? Probably no — adds pressure, simplifies state.
-4. **Are agendas drawn together or independently?** Drawing from a shared deck means at most one player gets each card → enforces variety. Independent draws can result in two players having identical agendas — interesting in a different way (a race).
+3. **Can words be re-clued?** Once a word is in someone's country (B2), can a future round include it again? Probably no, adds pressure, simplifies state.
+4. **Are agendas drawn together or independently?** Drawing from a shared deck means at most one player gets each card → enforces variety. Independent draws can result in two players having identical agendas, interesting in a different way (a race).
 5. **Anonymity vs profile.** B5's public profiles fight v1's per-round anonymity. We may need: profiles are public *only at end of round*, names tied to profiles are revealed alongside the round results.
 6. **Game length.** First-to-N is friendly to short games but B-layer mechanics need 5+ rounds to develop a country. Consider switching to "fixed N rounds, highest score wins" for v2.
 
@@ -327,7 +327,7 @@ These are the questions worth thinking about before committing to any path:
    - Initial per-player time bank (default **3 min**)
    - Max per-player time bank (default **4 min**)
 4. **Clue number range.** **1–9** (matches Codenames range).
-5. **Host UI.** Identical to player UI **except** the host owns lobby creation and the "Start game" / "Next round" buttons. During gameplay everyone sees the same thing — and importantly **each player only sees their own score**, not others'. End-of-game reveals the full scoreboard.
+5. **Host UI.** Identical to player UI **except** the host owns lobby creation and the "Start game" / "Next round" buttons. During gameplay everyone sees the same thing, and importantly **each player only sees their own score**, not others'. End-of-game reveals the full scoreboard.
 6. **Disconnect / reconnect.** Implemented in v1. Socket.IO session token stored in `localStorage` so a player who refreshes or drops Wi-Fi rejoins their seat.
 7. **Game length.** **First to 10 × players** points. Fresh public pool every round.
 8. **Word list.** Authored by us, ~200–500 words per language, biased toward themes that will plug into v2: core values, prosperity / poverty, war / peace, freedom / control, geography, governance, environment, technology. Generic enough to still feel like a fun word-association game.
@@ -346,7 +346,7 @@ In the order I'd take them:
 6. Scoring + reveal screen. (~1 hr)
 7. Playtest with friends, iterate.
 
-Each of these is a single commit (or a small handful). The strategic layer is intentionally not in this list — it lives behind a clean v1 baseline.
+Each of these is a single commit (or a small handful). The strategic layer is intentionally not in this list, it lives behind a clean v1 baseline.
 
 ---
 
@@ -354,5 +354,5 @@ Each of these is a single commit (or a small handful). The strategic layer is in
 
 - Public repo: `github.com/RemiFabre/modesty_is_the_name`.
 - **Commit very often.** One commit per discrete unit of work.
-- **No author/co-author trailers** in commit messages — plain messages only.
+- **No author/co-author trailers** in commit messages, plain messages only.
 - **Push is manual.** Owner pushes; collaborators (including AI assistants) do not.

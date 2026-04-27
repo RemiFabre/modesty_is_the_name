@@ -30,7 +30,7 @@ export function App() {
     <>
       {status !== "connected" && (
         <div className={"conn-banner conn-" + status}>
-          {status === "connecting" ? "Connecting…" : "Lost connection — retrying…"}
+          {status === "connecting" ? "Connecting…" : "Lost connection, retrying…"}
         </div>
       )}
       {content}

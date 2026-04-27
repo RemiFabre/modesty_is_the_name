@@ -226,7 +226,7 @@ function AxisRow({
         </span>
         <span className="axis-number-pub">
           public{" "}
-          <strong>{raw !== null ? raw.toFixed(2) : "—"}</strong>
+          <strong>{raw !== null ? raw.toFixed(2) : "-"}</strong>
           {rounded !== null && (
             <span className="muted small"> →{rounded}</span>
           )}

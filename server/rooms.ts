@@ -63,7 +63,7 @@ export interface Player {
   clueHistory: string[];
   /** Per-target per-axis correctness for THIS round (consumed at next round start). */
   hitsThisRound: Map<string, boolean[]>;
-  /** Score breakdown — accumulates over the game. score = sum of these. */
+  /** Score breakdown, accumulates over the game. score = sum of these. */
   wordScoreAsGuesser: number;
   wordScoreAsTarget: number;
   profileScoreAsGuesser: number;
@@ -584,7 +584,7 @@ export function submitGuess(
   }
   profileOuter.set(targetId, axes);
   // Note: we do NOT update `room.profileGuessSums` here. The public figure
-  // (Nations panel) should reflect end-of-previous-round values only — current-round
+  // (Nations panel) should reflect end-of-previous-round values only, current-round
   // guesses are folded in at round resolve. See `tryResolveRound`.
   applyBankTopUp(
     player,
@@ -779,7 +779,7 @@ function tryResolveRound(room: Room): void {
   } else {
     room.phase = "reveal";
   }
-  // Round is over — pause everyone's bank.
+  // Round is over, pause everyone's bank.
   closeAllBanks(room, Date.now());
 }
 

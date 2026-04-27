@@ -63,7 +63,7 @@ export function drawPool(
   const result = new Map<string, Language>();
 
   // Pass 1: try to pull each language's target. The first language to claim a
-  // word (e.g. "radio" exists in EN and ES — whichever is iterated first wins it)
+  // word (e.g. "radio" exists in EN and ES, whichever is iterated first wins it)
   // gets to tag it with its language.
   for (const lang of langList) {
     const list = load(lang);

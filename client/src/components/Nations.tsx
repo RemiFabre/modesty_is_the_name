@@ -91,7 +91,7 @@ function AxisReading({
         )}
       </div>
       <div className="axis-reading-value muted small">
-        {average !== null ? average.toFixed(1) : "—"}
+        {average !== null ? average.toFixed(1) : "-"}
         {selfValue !== null && (
           <span className="axis-self-tag">you: {selfValue}</span>
         )}

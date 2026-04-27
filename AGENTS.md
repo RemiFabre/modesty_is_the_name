@@ -1,4 +1,4 @@
-# AGENTS.md — playing Modesty as an LLM agent
+# AGENTS.md: playing Modesty as an LLM agent
 
 This document is for an LLM agent (Claude Code subagent or similar) playing the game as a bot. If you're a human, read [`RULES.md`](./RULES.md) instead.
 
@@ -15,13 +15,13 @@ You are joining a Modesty game already running on a remote URL. Your job: read t
    - Pool persistence: only words anyone targeted are removed between rounds.
    - End-of-game public-accuracy bonus: target gets +N for each axis where their cumulative-average rounded value matches their true profile.
 
-2. **Anonymity rule for honest play**: opponents are shown to you under random animal labels (Wolf, Stag, …) that reshuffle every round. **Treat them as anonymous**. Do not try to correlate labels across rounds via real names visible elsewhere — play the round as it's presented to you.
+2. **Anonymity rule for honest play**: opponents are shown to you under random animal labels (Wolf, Stag, …) that reshuffle every round. **Treat them as anonymous**. Do not try to correlate labels across rounds via real names visible elsewhere. Play the round as it's presented to you.
 
 ---
 
 ## 1. The CLI tool
 
-Every action is one shell command with stdout JSON. No long-lived process. State is stateless between calls — you pass your `sessionToken` each time. Hard-timeout at 20s.
+Every action is one shell command with stdout JSON. No long-lived process. State is stateless between calls (you pass your `sessionToken` each time). Hard-timeout at 20s.
 
 ```
 node bot-cli.mjs <command> --url URL --room CODE [--token TOKEN] [...flags]
@@ -58,7 +58,7 @@ Returned by `join` and `status` as `{state: PublicState}`. Key fields you need:
 - `me.guesses`: your word picks per opponent this round.
 - `me.profileGuesses`: your axis guesses per opponent this round.
 - `round.pool`: the public word list (you must pick from this).
-- `round.poolLangs`: object mapping each pool word to its canonical language (e.g. `{ "table": "en", "rivière": "fr" }`). Useful when polyglot bonus is on — group your intended words across languages.
+- `round.poolLangs`: object mapping each pool word to its canonical language (e.g. `{ "table": "en", "rivière": "fr" }`). Useful when polyglot bonus is on (group your intended words across languages).
 - `round.opponentClues`: visible only after you submit your own clue. Maps `playerId → { word, count, submittedAt }`.
 - `round.hasClue`: list of player IDs who have submitted a clue this round.
 - `settings.profileAxes`: array of `{left, right}` axis labels.
@@ -72,7 +72,7 @@ Returned by `join` and `status` as `{state: PublicState}`. Key fields you need:
 
 ## 3. Decision loop
 
-The server pre-computes what you owe next. **Branch on `state.me.owedAction`** — you don't have to derive it.
+The server pre-computes what you owe next. **Branch on `state.me.owedAction`** (you don't have to derive it).
 
 ```
 1. Join (or rejoin with sessionToken)
@@ -109,7 +109,7 @@ Don't poll faster than once every 2 seconds.
 Inputs: `round.pool` (25 words), `me.profile` (your axis values), `settings.profileAxes`.
 
 Process:
-1. Cluster the pool by semantic relatedness in your head. Find a tight 2–4-word cluster you can name with a single word. **Polyglot games**: `state.settings.languages` may contain multiple languages — the pool will be a mix. Cluster across languages freely; your clue word can be in *any* of those languages and target *any* mix of words from any language. Cross-language semantic links (e.g. an English clue binding `wave` + Spanish `marea` + French `port`) are *encouraged* — they're the most expressive plays.
+1. Cluster the pool by semantic relatedness in your head. Find a tight 2–4-word cluster you can name with a single word. **Polyglot games**: `state.settings.languages` may contain multiple languages (the pool will be a mix). Cluster across languages freely; your clue word can be in *any* of those languages and target *any* mix of words from any language. Cross-language semantic links (e.g. an English clue binding `wave` + Spanish `marea` + French `port`) are *encouraged*. They're the most expressive plays.
 2. **Bias the cluster toward your profile.** If your `me.profile[i] = 5` on an axis labeled `Hero ↔ Villain` (5 = villain), prefer clusters with darker / more antagonistic flavor. The cleaner you express your profile, the more profile points you'll earn.
 3. Pick the clue word: a single common noun (or any single token, free-form) that connects the cluster. Avoid obvious morphological neighbors of pool words (e.g. don't clue "warlike" if "war" is in the pool).
 4. Output: `clue --word "yourword" --intended "w1,w2,w3"`.
@@ -132,12 +132,12 @@ Process:
 2. Submit those as `--picks`.
 3. **Profile axes**: for each axis in `state.settings.profileAxes`, pick a value. Two modes:
    - **`state.settings.profileMode === "gradient"`**: integer 1–5. Default to **3** (middle) when unsure.
-   - **`state.settings.profileMode === "binary"`**: only **1** (left end) or **5** (right end). The middle is gone — you must commit. The server REJECTS values 2/3/4 in binary mode. When unsure, pick whichever feels even slightly more likely (or random).
+   - **`state.settings.profileMode === "binary"`**: only **1** (left end) or **5** (right end). The middle is gone. You must commit. The server REJECTS values 2/3/4 in binary mode. When unsure, pick whichever feels even slightly more likely (or random).
    Use to inform your read:
-   - `state.nations[opponent].averageAxes[i]` if there are samples — the table's running read.
-   - The opponent's clue history (`state.nations[opponent].clueHistory`) — patterns hint at their identity.
-   - The current round's clue word — the strongest signal you have right now.
-4. In gradient mode, hedge to 3 when uncertain. In binary mode, commit — you cannot abstain.
+   - `state.nations[opponent].averageAxes[i]` if there are samples (the table's running read).
+   - The opponent's clue history (`state.nations[opponent].clueHistory`). Patterns hint at their identity.
+   - The current round's clue word (the strongest signal you have right now).
+4. In gradient mode, hedge to 3 when uncertain. In binary mode, commit (you cannot abstain).
 5. Output: `guess --target <playerId> --picks w1,w2 --axes 1,2,3,4`.
 
 (All pending opponents in submission order are also available as `state.round.pendingGuesses[]` if you want to plan ahead.)
@@ -154,14 +154,14 @@ When `state.phase === "ended"`, the game is done. Print:
 
 ---
 
-## 7. Failure modes — don't do these
+## 7. Failure modes: don't do these
 
 - **Don't pick clue words that are morphological neighbors** of pool words ("running" if "run" is in the pool). Free-form, but obviously a kid-glove violation.
 - **Don't submit `picks` that aren't in `round.pool`**. You'll get an error.
 - **Don't submit `axes` arrays of the wrong length**. Must equal `settings.profileAxes.length`.
 - **Don't try to deduce who's behind a label**. The game expects honest play; even if the nations panel shows real names, treat the active round prompt as anonymous. (No automated correlation.)
 - **Don't poll faster than 2s**. Be a polite citizen.
-- **If a CLI call returns `{ok: false, error: "..."}`**, read the error and adjust. The most common errors are: pool-mismatch, wrong axis count, "Already submitted" (you raced yourself).
+- **If a CLI call returns `{ok: false, error: "..."}`**: read the error and adjust. The most common errors are: pool-mismatch, wrong axis count, "Already submitted" (you raced yourself).
 
 ---
 
@@ -181,12 +181,12 @@ while true; do
   sleep 3
 done
 
-# 3. Pick a clue. Pool example: ["forest", "sword", "river", "knight", ...].
+# 3. Pick a clue. Pool example: ["forest": "sword", "river", "knight", ...].
 #    Profile=[5,1,3,2] on axes [Hero/Villain, Order/Chaos, Mind/Body, Fate/Free will].
 #    Profile says villain + ordered. Cluster: sword/knight/throne; clue "throne" intends those.
 node bot-cli.mjs clue --word "throne" --intended "sword,knight,castle"
 
-# 4. Wait for opponents to submit, then guess each.
+# 4. Wait for opponents to submit: then guess each.
 node bot-cli.mjs guess --target OPP1 --picks "river,forest" --axes "1,3,3,2"
 # ...repeat for every opponent...
 
@@ -199,13 +199,13 @@ The exact glue (sleeping, parsing JSON, branching on phase) is up to you. Any re
 
 ## 9. Personality
 
-If your spawn prompt gives you a personality (e.g. "you are a cynical pragmatist"), let it bias your clue choices and profile expression — but **don't break the game** (no off-language clues, no nonsense). The personality is flavor, not license.
+If your spawn prompt gives you a personality (e.g. "you are a cynical pragmatist"), let it bias your clue choices and profile expression, but **don't break the game** (no off-language clues, no nonsense). The personality is flavor, not license.
 
 If you have no specific personality: play to win, biased toward making your private profile maximally legible to the table.
 
 ---
 
-## 10. After the game — write a review
+## 10. After the game: write a review
 
 When `state.phase === "ended"`, before exiting, write a short review of the game to:
 
@@ -215,7 +215,7 @@ When `state.phase === "ended"`, before exiting, write a short review of the game
 
 Use ISO format like `2026-04-27T15-32-04Z` (avoid colons in filenames). The orchestrator collects reviews after every game, so this is your one chance to give honest feedback.
 
-Use the `Write` tool. Structure the file with these sections (free-form prose under each — no need to fill all if not relevant):
+Use the `Write` tool. Structure the file with these sections (free-form prose under each, no need to fill all if not relevant):
 
 ```markdown
 # <YOUR_NAME> · review · game <gameId>
@@ -267,13 +267,13 @@ loop interesting or noise?
 ## One memorable moment
 A clue you regret, a guess that landed, an inference you got wrong, etc.
 
-## A new constraint mechanic — your pitch
+## A new constraint mechanic: your pitch
 The current "constraint" each player is under is the profile-axis
 identity (be legible on these axes). What other constraint
 mechanics could the game support? Be wild. Examples to spark ideas
 (don't have to use these): forced phonemes/letters in clue words,
 acrostic streaks, hand of forbidden pool words, secret end-game
-agendas, vows, role decks. Pitch ONE concrete idea — what it
+agendas, vows, role decks. Pitch ONE concrete idea, what it
 constrains, how it's revealed, and how it'd score.
 ```
 

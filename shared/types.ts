@@ -57,10 +57,10 @@ export interface ProfilePreset {
 }
 
 /**
- * Curated presets — each is 4 binary-friendly axes, vetted via playtests.
+ * Curated presets, each is 4 binary-friendly axes, vetted via playtests.
  * The earlier 10 presets were narrowed to 4 to converge on quality.
  * See agent reviews from games 1–2 for the rationale (axes that flatten to
- * "neutral" too easily — Abstract/Concrete, Old/New — were dropped).
+ * "neutral" too easily, Abstract/Concrete, Old/New, were dropped).
  */
 export const PROFILE_PRESETS: ProfilePreset[] = [
   {
@@ -180,7 +180,7 @@ export interface RoomSettings {
   /**
    * If true (default), the cumulative profile-guess averages ("public figure")
    * are tracked, displayed in the Nations panel, and the end-of-game accuracy
-   * bonus is applied. If false, none of that — just per-axis +1 each round.
+   * bonus is applied. If false, none of that, just per-axis +1 each round.
    */
   publicFigures: boolean;
   /** End-of-game bonus per matching axis. Only used when publicFigures is true. */
@@ -243,7 +243,7 @@ export interface PublicPlayer {
   id: string;
   /** During round phase, this is the anonymous label for opponents. Reveal/ended/lobby show real names. */
   name: string;
-  /** The player's real (chosen) name. Always exposed — anonymity is enforced via `name`/`anonymous` only for in-round per-clue UI. */
+  /** The player's real (chosen) name. Always exposed, anonymity is enforced via `name`/`anonymous` only for in-round per-clue UI. */
   realName: string;
   connected: boolean;
   isHost: boolean;
@@ -284,13 +284,13 @@ export type OwedAction =
   | "submit_clue"
   /** Round phase, there's an opponent you owe a guess for. See `me.nextTarget`. */
   | "submit_guess"
-  /** Round phase, you've done your part — wait for the rest of the table. */
+  /** Round phase, you've done your part, wait for the rest of the table. */
   | "wait_for_others"
   /** Reveal phase, you're host: call `next` to advance. */
   | "host_advance"
   /** Reveal phase, you're not host: wait for advance. */
   | "wait_for_advance"
-  /** Game has ended — write your review and exit. */
+  /** Game has ended, write your review and exit. */
   | "review"
   /** Anything else (rare). */
   | "idle";

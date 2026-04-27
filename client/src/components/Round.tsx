@@ -107,8 +107,8 @@ export function Round({ state }: { state: PublicState }) {
               activity.kind === "clue"
                 ? "Your clock"
                 : activity.kind === "guess"
-                  ? `Your clock — guessing ${activity.row.player.name}`
-                  : "Your clock — waiting"
+                  ? `Your clock, guessing ${activity.row.player.name}`
+                  : "Your clock, waiting"
             }
             value={fmtBank(liveBank)}
             danger={liveBank < 0}
@@ -179,8 +179,8 @@ function InstructionPrompt({ activity }: { activity: Activity }) {
           below. Pick between {CLUE_COUNT_MIN} and {CLUE_COUNT_MAX} words.
         </p>
         <p className="muted small">
-          If you can, pick a clue word that fits your private profile —
-          opponents who read your axes right give <strong>you</strong> points
+          If you can, pick a clue word that fits your private profile.
+          Opponents who read your axes right give <strong>you</strong> points
           too, and there's an end-of-game bonus for being clearly readable.
         </p>
         <p className="muted small">
@@ -299,7 +299,7 @@ function GuessAction({
   // Reset axis values when we switch to a different opponent (or the axis count changed).
   useEffect(() => {
     setAxisValues(new Array(axes.length).fill(3));
-    // intentionally only depending on targetId + axis count — `axes` is a new array
+    // intentionally only depending on targetId + axis count, `axes` is a new array
     // reference on every state broadcast, which would otherwise reset user input.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId, axes.length]);

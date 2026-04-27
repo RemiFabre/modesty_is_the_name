@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Modesty bot CLI — one shell command per game action.
+// Modesty bot CLI, one shell command per game action.
 // Usage: see AGENTS.md.
 
 import { io } from "socket.io-client";
@@ -125,7 +125,7 @@ async function main() {
   if (cmd === "help") {
     console.log(
       [
-        "modesty bot-cli — one-shot commands for an LLM agent",
+        "modesty bot-cli, one-shot commands for an LLM agent",
         "",
         "Common flags: --url URL --room CODE",
         "Most commands need --token TOKEN (returned by `join` or `create`).",

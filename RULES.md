@@ -1,4 +1,4 @@
-# Modesty is the Name — Rules
+# Modesty is the Name: Rules
 
 A simultaneous-play word-association party game inspired by Codenames, with a hidden-identity layer on top. 3–8 players, browser-based, ~20–40 minutes per game.
 
@@ -27,7 +27,7 @@ When the game starts, **each player is privately assigned a profile**: an intege
 
 Each round has two overlapping phases for each player.
 
-### Phase A — Clue (simultaneous)
+### Phase A: Clue (simultaneous)
 
 Every player simultaneously:
 1. Picks **1–9 public words** from the shared pool. These are your *intended* words.
@@ -39,7 +39,7 @@ You only see the *count* of intended words others have picked (and their clue wo
 
 **Tip:** if you can, pick a clue word that fits your private profile. Opponents who read your axes correctly give *you* points too (scoring is symmetric on profile guesses), and there's an end-of-game bonus for being clearly readable.
 
-### Phase B — Guess (per opponent, in submission order)
+### Phase B: Guess (per opponent, in submission order)
 
 The moment you submit your clue, you start being shown opponents' clues one at a time, in the order they submitted. Opponents are shown by **anonymous animal labels** (Wolf, Fox, Owl…) that reshuffle every round; their real names come back at end-of-turn.
 
@@ -71,7 +71,7 @@ Compute `hits` = number of guesser's picks that were in target's intended set. `
 ### Profile side
 For each axis where the guesser's value matches the target's true value: **+1 to both** the guesser and the target. (So 4 axes × all correct = +4 to each.)
 
-You learn how many of each opponent's axes you got right (with **green ✓ / red ✗** markers per axis), but the true value is not shown for missed axes — you only know it was wrong. The full profile is revealed only at game end.
+You learn how many of each opponent's axes you got right (with **green ✓ / red ✗** markers per axis), but the true value is not shown for missed axes. You only know it was wrong. The full profile is revealed only at game end.
 
 ### Standings
 Score is updated only at round resolve. During the round, standings show end-of-previous-round totals, by real name. Anonymity applies only to the per-clue prompt.
@@ -82,7 +82,7 @@ Score is updated only at round resolve. During the round, standings show end-of-
 
 If the lobby creator enables `polyglotBonus` AND the game has multiple languages active, an extra bonus is added to the per-pair delta when **all** intended words are correctly guessed.
 
-The bonus is computed by partitioning the matched words into "horizontal slices" — each slice is one cluster of words from distinct languages — and summing T(slice_size).
+The bonus is computed by partitioning the matched words into "horizontal slices" (each slice is one cluster of words from distinct languages) and summing T(slice_size).
 
 **Example.** Matched picks: 3 English + 2 French + 1 Spanish.
 - Slice 1: {EN, FR, ES} = 3 langs → T(3) = **6**
@@ -107,7 +107,7 @@ The game is for friends and family, not strangers. If a competitive online mode 
 After a round resolves, the pool **partially carries over to the next round**:
 
 - Words that were in *anyone's* intended set this round are removed and replaced with fresh random words from the dictionary.
-- Words no one targeted **stay** in the pool — they're either uninteresting or genuinely hard.
+- Words no one targeted **stay** in the pool. They're either uninteresting or genuinely hard.
 
 Over multiple rounds, the pool drifts toward harder, less-obvious words. This is by design.
 
@@ -117,7 +117,7 @@ Over multiple rounds, the pool drifts toward harder, less-obvious words. This is
 
 Each player has one personal clock. It ticks down only when you owe an action (your clue, or a guess for a visible opponent). When you submit a clue you get a top-up (default +120 s); each guess gives a smaller top-up (default +60 s). Capped at the max bank (default 4 min).
 
-It's display-only — nothing happens automatically when it hits zero (it goes red). For the friends-around-the-table version we just wait.
+It's display-only. Nothing happens automatically when it hits zero (it goes red). For the friends-around-the-table version we just wait.
 
 ---
 
@@ -125,7 +125,7 @@ It's display-only — nothing happens automatically when it hits zero (it goes r
 
 For each player, every guess any opponent has ever submitted on their axes contributes to a **public figure**: the cumulative average of all guesses on each axis, across the whole game. This is shown in the Nations panel during play and at reveal.
 
-It also shows that player's accumulated **clue-word history** — the words they've cleared from the pool — like a citation of who they've been talking about.
+It also shows that player's accumulated **clue-word history** (the words they've cleared from the pool), like a citation of who they've been talking about.
 
 ---
 
@@ -141,7 +141,7 @@ At game end:
 
 ---
 
-## Score sources, summarized
+## Score sources: summarized
 
 Each player's total score is the sum of five components. The end-of-game scoreboard shows them broken out:
 
@@ -161,7 +161,7 @@ A few non-obvious things worth knowing:
 
 - **Clear cluing pays twice.** A clue that opponents can guess gets you word points *and* makes your profile easier to read, which gets you axis points *and* the end-of-game accuracy bonus. The strongest players are *legible*, not cryptic.
 - **Risky mode rewards confidence.** A perfect 7-word clue is +16 in Risky. A wide miss is −16. Don't go big unless you have a clean read.
-- **Anonymous labels reshuffle every round.** "Wolf" is a different real player each round. The accumulated clue history (Nations panel) is by real name — but any player who pays attention can correlate.
+- **Anonymous labels reshuffle every round.** "Wolf" is a different real player each round. The accumulated clue history (Nations panel) is by real name, but any player who pays attention can correlate.
 - **The pool drifts.** Targeted words leave; un-targeted ones stay. Late rounds tend to have weirder, harder words because the easy ones get cleared early.
 - **Profile guessing has no per-axis penalty for being wrong.** You always submit a value for every axis. Default is 3; nudge from there only when you have a real read.
 
@@ -169,13 +169,13 @@ A few non-obvious things worth knowing:
 
 ## Lobby controls (full reference)
 
-- **Language** — picks the dictionary. ~500–1100 single-token nouns per language.
-- **Scoring** — `Symmetric` / `Generous` / `Risky`. See the table above.
-- **Profile axes** — preset or custom. Min 3, max 8 axes.
-- **Pool size** — number of public words at any time. 9 minimum, 40 maximum, 25 default.
-- **Initial bank** — starting per-player clock (default 3 min).
-- **Max bank** — cap on the bank after top-ups (default 4 min).
-- **Top-up on clue submit** — added to your clock when you submit your clue (default 120 s).
-- **Top-up per guess** — added to your clock per per-opponent guess submitted (default 60 s).
-- **Points per player** — game ends when someone hits `this × players`. Default 10.
-- **Public-accuracy bonus / axis** — end-of-game bonus per matching axis. Default 2.
+- **Language**: picks the dictionary. ~500–1100 single-token nouns per language.
+- **Scoring**: `Symmetric` / `Generous` / `Risky`. See the table above.
+- **Profile axes**: preset or custom. Min 3, max 8 axes.
+- **Pool size**: number of public words at any time. 9 minimum, 40 maximum, 25 default.
+- **Initial bank**: starting per-player clock (default 3 min).
+- **Max bank**: cap on the bank after top-ups (default 4 min).
+- **Top-up on clue submit**: added to your clock when you submit your clue (default 120 s).
+- **Top-up per guess**: added to your clock per per-opponent guess submitted (default 60 s).
+- **Points per player**: game ends when someone hits `this × players`. Default 10.
+- **Public-accuracy bonus / axis**: end-of-game bonus per matching axis. Default 2.

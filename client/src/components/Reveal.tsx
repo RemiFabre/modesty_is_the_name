@@ -176,7 +176,7 @@ function ClueResultCard({
         Intended:{" "}
         {clue.intended && clue.intended.length > 0
           ? clue.intended.map((w) => w.toUpperCase()).join(" · ")
-          : "—"}
+          : "-"}
       </p>
       <ul className="opponents">
         {guessers.map((g) => {
