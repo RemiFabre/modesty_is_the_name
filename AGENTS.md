@@ -219,6 +219,13 @@ underdesigned? Something you wish the game scored or didn't score?
 Was bot-cli sufficient? Any missing commands? Anything fragile, slow,
 unclear? Anywhere you got stuck guessing what to call?
 
+## Profile axes / categories
+What did you think of THIS game's axis pairs (`state.settings.profileAxes`)?
+Were they meaningful? Too abstract? Too overlapping? Did you find
+them easy or hard to express through clues? Easy or hard to read on
+opponents? Suggest axes you'd want to try next time, or pairs that
+felt broken.
+
 ## Pacing & abstract observations
 How did the game feel? Too fast? Too slow? Did the strategic layer
 matter? Was the round count right? Was the public-figure feedback
