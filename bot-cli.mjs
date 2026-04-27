@@ -131,13 +131,13 @@ async function main() {
         "Most commands need --token TOKEN (returned by `join` or `create`).",
         "",
         "Commands:",
-        "  create --url URL --name NAME [--languages en,fr,es] [--scoring symmetric] \\",
-        "         [--profile-mode binary] [--points-per-player 18] [--pool-size 20] \\",
-        "         [--accuracy-bonus 2] \\",
+        "  create --url URL --name NAME [--languages en,fr,es] \\",
+        "         [--scoring symmetric|generous|precision] [--profile-mode binary|gradient] \\",
+        "         [--points-per-player 18] [--pool-size 20] [--accuracy-bonus 2] \\",
+        "         [--public-figures false] [--polyglot-bonus true] \\",
         "         [--axes-json '[{\"left\":\"...\",\"right\":\"...\"}, ...]']",
         "         → prints {playerId, sessionToken, roomCode, state}.",
-        "         The creator is the host. --languages is comma-separated for polyglot games",
-        "         (pool draws roughly equally from each language).",
+        "         The creator is the host.",
         "  join   --url URL --room CODE --name NAME",
         "         → prints {playerId, sessionToken, roomCode, state}",
         "  status --url URL --room CODE --token TOKEN",
@@ -188,6 +188,14 @@ async function main() {
     }
     if (args["accuracy-bonus"]) {
       settings.publicAccuracyBonus = parseInt(args["accuracy-bonus"], 10);
+    }
+    if (args["public-figures"] !== undefined) {
+      settings.publicFigures =
+        args["public-figures"] !== "false" && args["public-figures"] !== "0";
+    }
+    if (args["polyglot-bonus"] !== undefined) {
+      settings.polyglotBonus =
+        args["polyglot-bonus"] !== "false" && args["polyglot-bonus"] !== "0";
     }
     if (args["axes-json"]) {
       try {

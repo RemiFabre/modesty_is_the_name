@@ -108,7 +108,7 @@ export const PROFILE_PRESETS: ProfilePreset[] = [
 export const DEFAULT_PROFILE_AXES: AxisPair[] =
   PROFILE_PRESETS.find((p) => p.id === "storyteller")!.axes;
 
-export type ScoringMode = "symmetric" | "generous" | "risky";
+export type ScoringMode = "symmetric" | "generous" | "precision";
 
 /**
  * Profile axis value mode.
@@ -122,7 +122,7 @@ export type ProfileMode = "gradient" | "binary";
 export const PROFILE_BINARY_LOW = 1;
 export const PROFILE_BINARY_HIGH = 5;
 
-export const SCORING_MODES: ScoringMode[] = ["symmetric", "generous", "risky"];
+export const SCORING_MODES: ScoringMode[] = ["symmetric", "generous", "precision"];
 
 export interface ScoringModeInfo {
   id: ScoringMode;
@@ -146,19 +146,20 @@ export const SCORING_MODE_INFO: Record<ScoringMode, ScoringModeInfo> = {
     description:
       "Each correct word is +2 to both. Each incorrect word is −1 to both. Rewards confident clues; doesn't punish risk-taking too hard.",
   },
-  risky: {
-    id: "risky",
-    label: "Risky",
-    short: "non-linear both ways",
+  precision: {
+    id: "precision",
+    label: "Precision",
+    short: "all-or-nothing, T(n) reward",
     description:
-      "Sub-quadratic scaling on BOTH hits and misses. f(n)=⌊(n+1)²/4⌋ → 1,2,4,6,9,12,16,20,25. Delta = f(hits) − f(misses) (applied to both you and the clue-giver). Big clean wins are explosive; big clean misses are catastrophic.",
+      "Triangular reward on perfect hits, ZERO on anything less. If you find ALL N intended words, both sides get T(N) = 1, 3, 6, 10, 15, 21, 28, 36, 45 for N=1..9. Otherwise nothing. No negatives. Encourages precision; rewards big clean clues.",
   },
 };
 
-/** Sub-quadratic reward function used in risky mode. f(n) = floor((n+1)² / 4). */
-export function riskyReward(n: number): number {
+/** Triangular numbers: T(n) = n(n+1)/2 → 0, 1, 3, 6, 10, 15, 21, 28, 36, 45.
+ *  Used by precision-mode scoring and the polyglot-cluster bonus. */
+export function triangular(n: number): number {
   if (n <= 0) return 0;
-  return Math.floor(((n + 1) * (n + 1)) / 4);
+  return (n * (n + 1)) / 2;
 }
 
 export interface RoomSettings {
@@ -176,8 +177,21 @@ export interface RoomSettings {
   profileAxes: AxisPair[];
   /** Whether axis values are gradient 1..5 or binary {1, 5}. */
   profileMode: ProfileMode;
-  /** End-of-game bonus: for each player, +N for each axis where their rounded public figure matches their true profile. */
+  /**
+   * If true (default), the cumulative profile-guess averages ("public figure")
+   * are tracked, displayed in the Nations panel, and the end-of-game accuracy
+   * bonus is applied. If false, none of that — just per-axis +1 each round.
+   */
+  publicFigures: boolean;
+  /** End-of-game bonus per matching axis. Only used when publicFigures is true. */
   publicAccuracyBonus: number;
+  /**
+   * Polyglot cluster bonus: if all intended words are guessed correctly AND
+   * languages.length > 1, group the words by language and award a triangular
+   * bonus per "horizontal slice" (each slice = one cluster of distinct-language
+   * words). Symmetric (both guesser and clue-giver). See RULES.md.
+   */
+  polyglotBonus: boolean;
 }
 
 export const DEFAULT_SETTINGS: RoomSettings = {
@@ -191,7 +205,9 @@ export const DEFAULT_SETTINGS: RoomSettings = {
   pointsPerPlayer: 18,
   profileAxes: DEFAULT_PROFILE_AXES,
   profileMode: "binary",
+  publicFigures: true,
   publicAccuracyBonus: 2,
+  polyglotBonus: false,
 };
 
 export const SETTINGS_BOUNDS = {
@@ -341,6 +357,9 @@ export interface ProfileAccuracy {
 export interface PublicRound {
   number: number;
   pool: string[];
+  /** For each pool word, the canonical language it was drawn as. Useful for
+   *  the polyglot cluster bonus and for displaying flags on the UI. */
+  poolLangs: { [word: string]: Language };
   startedAt: number;
   /** Players who have submitted a clue this round. */
   hasClue: string[];

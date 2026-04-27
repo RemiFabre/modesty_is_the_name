@@ -66,7 +66,7 @@ Compute `hits` = number of guesser's picks that were in target's intended set. `
 |---|---|
 | **Symmetric** *(default)* | `hits − misses` |
 | **Generous** | `2 × hits − misses` |
-| **Risky** | `f(hits) − f(misses)` where `f(n) = ⌊(n+1)² / 4⌋` → 0, 1, 2, 4, 6, 9, 12, 16, 20, 25 |
+| **Precision** | All-or-nothing: `T(N) = N(N+1)/2` if every pick was correct, else `0`. T(N) → 1, 3, 6, 10, 15, 21, 28, 36, 45 for N=1..9. No negatives. |
 
 ### Profile side
 For each axis where the guesser's value matches the target's true value: **+1 to both** the guesser and the target. (So 4 axes × all correct = +4 to each.)
@@ -77,6 +77,30 @@ You learn how many of each opponent's axes you got right (with **green ✓ / red
 Score is updated only at round resolve. During the round, standings show end-of-previous-round totals, by real name. Anonymity applies only to the per-clue prompt.
 
 ---
+
+### Polyglot cluster bonus (optional)
+
+If the lobby creator enables `polyglotBonus` AND the game has multiple languages active, an extra bonus is added to the per-pair delta when **all** intended words are correctly guessed.
+
+The bonus is computed by partitioning the matched words into "horizontal slices" — each slice is one cluster of words from distinct languages — and summing T(slice_size).
+
+**Example.** Matched picks: 3 English + 2 French + 1 Spanish.
+- Slice 1: {EN, FR, ES} = 3 langs → T(3) = **6**
+- Slice 2: {EN, FR} = 2 langs → T(2) = **3**
+- Slice 3: {EN} = 1 lang → T(1) = **1**
+- Total cluster bonus: **+10** to both guesser and clue-giver
+
+The bonus scales naturally with the number of languages and rewards finding tight clusters that span the most languages possible. Single-language pools never trigger this bonus (there are no cross-language clusters to form).
+
+## Cheating
+
+Like the **same-family clue word** rule, polyglot mode and the cluster bonus run on good faith. Some patterns are obvious cheating but not enforced by the server:
+- Cluing the literal language name ("English", "français", "español") to bind every word from that language.
+- Picking intended words just by their language without semantic connection.
+- Cluing a word from the same morphological family as a public word.
+- Cluing with multiple words.
+
+The game is for friends and family, not strangers. If a competitive online mode is ever added, automatic detection and/or post-game voting will go in then.
 
 ## Pool persistence
 
@@ -111,7 +135,7 @@ When any player's score reaches `pointsPerPlayer × number_of_players` (default 
 
 At game end:
 
-1. **Public-accuracy bonus** is applied. For each player, take their public figure (cumulative average per axis), round each axis to the nearest 1–5, and compare to their true profile. **+publicAccuracyBonus (default +2)** for every axis that matches.
+1. **Public-accuracy bonus** is applied (if `publicFigures` is on). For each player, take their public figure (cumulative average per axis), round each axis to the nearest 1–5, and compare to their true profile. **+publicAccuracyBonus (default +2)** for every axis that matches. If `publicFigures` is off, no bonus is applied and the public figure isn't tracked at all.
 2. The full final scoreboard reveals everyone's true profile, the breakdown of where their points came from (words guessed / words read / profile guessed / profile read / accuracy bonus), and the *exact* (unrounded) public figure on each axis next to the truth, so you can see how close the table got.
 3. The winner is whoever has the highest final score after the bonus.
 

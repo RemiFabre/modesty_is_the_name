@@ -14,6 +14,7 @@ function ensureDirs(): void {
 export interface RoundLog {
   number: number;
   pool: string[];
+  poolLangs: Record<string, string>;
   startedAt: number;
   /** playerId → animal label assigned to them this round. */
   labels: Record<string, string>;
@@ -65,6 +66,7 @@ export function snapshotRound(round: Round): RoundLog {
   return {
     number: round.number,
     pool: [...round.pool],
+    poolLangs: { ...round.poolLangs },
     startedAt: round.startedAt,
     labels: Object.fromEntries(round.labels),
     clues: Object.fromEntries(

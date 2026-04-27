@@ -58,6 +58,7 @@ Returned by `join` and `status` as `{state: PublicState}`. Key fields you need:
 - `me.guesses`: your word picks per opponent this round.
 - `me.profileGuesses`: your axis guesses per opponent this round.
 - `round.pool`: the public word list (you must pick from this).
+- `round.poolLangs`: object mapping each pool word to its canonical language (e.g. `{ "table": "en", "rivière": "fr" }`). Useful when polyglot bonus is on — group your intended words across languages.
 - `round.opponentClues`: visible only after you submit your own clue. Maps `playerId → { word, count, submittedAt }`.
 - `round.hasClue`: list of player IDs who have submitted a clue this round.
 - `settings.profileAxes`: array of `{left, right}` axis labels.

@@ -13,7 +13,7 @@ import {
   PROFILE_AXIS_MIN,
   PROFILE_BINARY_HIGH,
   PROFILE_BINARY_LOW,
-  riskyReward,
+  triangular,
   SCORING_MODES,
   SETTINGS_BOUNDS,
   type AxisPair,
@@ -74,6 +74,8 @@ export interface Player {
 export interface Round {
   number: number;
   pool: string[];
+  /** Per-pool-word canonical language. */
+  poolLangs: Record<string, Language>;
   startedAt: number;
   clues: Map<string, FullClue>; // playerId -> Clue (with intended)
   guesses: Map<string, Map<string, string[]>>; // guesserId -> targetId -> picks
@@ -209,9 +211,42 @@ function pairDelta(
       return hits - misses;
     case "generous":
       return 2 * hits - misses;
-    case "risky":
-      return riskyReward(hits) - riskyReward(misses);
+    case "precision":
+      // All-or-nothing: if every pick was correct, T(N) reward. Otherwise 0.
+      return misses === 0 ? triangular(hits) : 0;
   }
+}
+
+/**
+ * Polyglot cluster bonus: when ALL intended words are correctly guessed AND
+ * the room has multiple languages enabled, partition the matched words into
+ * "horizontal slices" (each slice = one cluster of words from distinct
+ * languages). Sum T(slice_size). Symmetric (returns the per-pair bonus).
+ *
+ * Example: matched picks have 3 EN + 2 FR + 1 ES.
+ *   Slices: {EN,FR,ES}=3 → +6,  {EN,FR}=2 → +3,  {EN}=1 → +1.  Total +10.
+ */
+function polyglotClusterBonus(
+  matchedPicks: string[],
+  poolLangs: Record<string, Language>,
+): number {
+  const counts = new Map<Language, number>();
+  for (const w of matchedPicks) {
+    const l = poolLangs[w];
+    if (!l) continue;
+    counts.set(l, (counts.get(l) ?? 0) + 1);
+  }
+  if (counts.size === 0) return 0;
+  // Sort counts descending. Slice r contributes T(number_of_langs_with_count >= r+1).
+  const sortedCounts = Array.from(counts.values()).sort((a, b) => b - a);
+  const maxCount = sortedCounts[0];
+  let bonus = 0;
+  for (let r = 0; r < maxCount; r++) {
+    let langsAtRow = 0;
+    for (const c of sortedCounts) if (c > r) langsAtRow++;
+    bonus += triangular(langsAtRow);
+  }
+  return bonus;
 }
 
 function makePlayer(name: string, isHost: boolean, bankSeconds: number): Player {
@@ -408,10 +443,23 @@ export function startGame(room: Room, player: Player): void {
   syncAllBankActivity(room, Date.now());
 }
 
-function newRound(room: Room, number: number, pool?: string[]): Round {
+function newRound(
+  room: Room,
+  number: number,
+  pool?: string[],
+  poolLangs?: Record<string, Language>,
+): Round {
+  let resolvedPool = pool;
+  let resolvedLangs = poolLangs;
+  if (!resolvedPool || !resolvedLangs) {
+    const drawn = drawPool(room.settings.languages, room.settings.poolSize);
+    resolvedPool = drawn.words;
+    resolvedLangs = drawn.langs;
+  }
   return {
     number,
-    pool: pool ?? drawPool(room.settings.languages, room.settings.poolSize),
+    pool: resolvedPool,
+    poolLangs: resolvedLangs,
     startedAt: Date.now(),
     clues: new Map(),
     guesses: new Map(),
@@ -422,17 +470,31 @@ function newRound(room: Room, number: number, pool?: string[]): Round {
 }
 
 /** Compute the next round's pool: keep words that no one targeted, refill the rest with fresh draws. */
-function carryPoolForward(room: Room, prev: Round): string[] {
+function carryPoolForward(
+  room: Room,
+  prev: Round,
+): { pool: string[]; poolLangs: Record<string, Language> } {
   const targeted = new Set<string>();
   for (const clue of prev.clues.values()) {
     for (const w of clue.intended) targeted.add(w);
   }
   const survivors = prev.pool.filter((w) => !targeted.has(w));
   const need = room.settings.poolSize - survivors.length;
-  if (need <= 0) return survivors.slice(0, room.settings.poolSize);
+  // Build the lang map from survivors (preserving prior tags).
+  const langs: Record<string, Language> = {};
+  for (const w of survivors) {
+    if (prev.poolLangs[w]) langs[w] = prev.poolLangs[w];
+  }
+  if (need <= 0) {
+    return {
+      pool: survivors.slice(0, room.settings.poolSize),
+      poolLangs: langs,
+    };
+  }
   const exclude = new Set(survivors);
   const fresh = drawPool(room.settings.languages, need, exclude);
-  return [...survivors, ...fresh];
+  for (const w of fresh.words) langs[w] = fresh.langs[w];
+  return { pool: [...survivors, ...fresh.words], poolLangs: langs };
 }
 
 export function submitClue(
@@ -633,7 +695,18 @@ function tryResolveRound(room: Room): void {
       if (targetId === guesserId) continue;
       const picks = inner.get(targetId) ?? [];
       const intendedSet = new Set(round.clues.get(targetId)!.intended);
-      const delta = pairDelta(picks, intendedSet, room.settings.scoring);
+      let delta = pairDelta(picks, intendedSet, room.settings.scoring);
+      // Polyglot cluster bonus: only when EVERY pick is correct AND there are
+      // multiple languages active in the room.
+      const allCorrect = picks.every((p) => intendedSet.has(p));
+      if (
+        allCorrect &&
+        picks.length > 0 &&
+        room.settings.polyglotBonus &&
+        room.settings.languages.length > 1
+      ) {
+        delta += polyglotClusterBonus(picks, round.poolLangs);
+      }
       const guesser = room.players.find((p) => p.id === guesserId)!;
       const target = room.players.find((p) => p.id === targetId)!;
       guesser.score += delta;
@@ -670,28 +743,30 @@ function tryResolveRound(room: Room): void {
     const c = round.clues.get(p.id);
     if (c) p.clueHistory.push(c.word);
   }
-  // Now (and only now) fold this round's profile guesses into the cumulative
-  // public figure so the Nations panel updates end-of-round, not live.
-  const numAxes = room.settings.profileAxes.length;
-  for (const [, perTarget] of round.profileGuesses) {
-    for (const [targetId, axesGuess] of perTarget) {
-      let sums = room.profileGuessSums.get(targetId);
-      if (!sums) {
-        sums = new Array<number>(numAxes).fill(0);
-        room.profileGuessSums.set(targetId, sums);
+  if (room.settings.publicFigures) {
+    // Now (and only now) fold this round's profile guesses into the cumulative
+    // public figure so the Nations panel updates end-of-round, not live.
+    const numAxes = room.settings.profileAxes.length;
+    for (const [, perTarget] of round.profileGuesses) {
+      for (const [targetId, axesGuess] of perTarget) {
+        let sums = room.profileGuessSums.get(targetId);
+        if (!sums) {
+          sums = new Array<number>(numAxes).fill(0);
+          room.profileGuessSums.set(targetId, sums);
+        }
+        for (let i = 0; i < axesGuess.length; i++) sums[i] += axesGuess[i];
+        room.profileGuessSamples.set(
+          targetId,
+          (room.profileGuessSamples.get(targetId) ?? 0) + 1,
+        );
       }
-      for (let i = 0; i < axesGuess.length; i++) sums[i] += axesGuess[i];
-      room.profileGuessSamples.set(
-        targetId,
-        (room.profileGuessSamples.get(targetId) ?? 0) + 1,
-      );
     }
   }
   // First-to-N detection (based on round-only scores; bonus applied AFTER game ends).
   const target = room.settings.pointsPerPlayer * room.players.length;
   const reachers = room.players.filter((p) => p.score >= target);
   if (reachers.length > 0) {
-    applyPublicAccuracyBonus(room);
+    if (room.settings.publicFigures) applyPublicAccuracyBonus(room);
     // Highest final score wins (after bonus). Ties broken by score, then by reaching first.
     let winner = room.players[0];
     for (const p of room.players) {
@@ -738,11 +813,9 @@ export function nextRound(room: Room, player: Player): void {
   if (!player.isHost) throw new Error("Only the host can advance the round");
   if (room.phase !== "reveal") throw new Error("Round isn't over");
   const next = (room.round?.number ?? 0) + 1;
-  const carriedPool = room.round
-    ? carryPoolForward(room, room.round)
-    : undefined;
+  const carried = room.round ? carryPoolForward(room, room.round) : undefined;
   room.phase = "round";
-  room.round = newRound(room, next, carriedPool);
+  room.round = newRound(room, next, carried?.pool, carried?.poolLangs);
   for (const p of room.players) p.lastRoundDelta = 0;
   syncAllBankActivity(room, Date.now());
 }
@@ -847,6 +920,7 @@ export function viewFor(room: Room, playerId: string): PublicState {
     publicRound = {
       number: round.number,
       pool: round.pool,
+      poolLangs: { ...round.poolLangs },
       startedAt: round.startedAt,
       hasClue: Array.from(round.clues.keys()),
       opponentClues: cluesPublic,

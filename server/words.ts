@@ -35,11 +35,18 @@ function shuffle<T>(arr: T[]): T[] {
  * from any other language. Cross-language duplicates (e.g., "radio" exists in
  * EN, ES, IT) are deduped.
  */
+export interface DrawnPool {
+  /** Pool words in interleaved (shuffled) order. */
+  words: string[];
+  /** Each pool word → canonical language it was drawn as. */
+  langs: Record<string, Language>;
+}
+
 export function drawPool(
   langs: readonly Language[],
   size: number,
   exclude?: ReadonlySet<string>,
-): string[] {
+): DrawnPool {
   const langList = langs.length > 0 ? Array.from(langs) : ["en" as Language];
 
   // Compute target per language: floor(size/n), with the remainder spread across the first few langs.
@@ -53,9 +60,11 @@ export function drawPool(
   }
 
   const excludeSet = new Set(exclude ?? []);
-  const result = new Set<string>();
+  const result = new Map<string, Language>();
 
-  // Pass 1: try to pull each language's target.
+  // Pass 1: try to pull each language's target. The first language to claim a
+  // word (e.g. "radio" exists in EN and ES — whichever is iterated first wins it)
+  // gets to tag it with its language.
   for (const lang of langList) {
     const list = load(lang);
     const candidates = list.filter(
@@ -64,10 +73,10 @@ export function drawPool(
     const want = target.get(lang) ?? 0;
     if (candidates.length === 0) continue;
     const picks = sampleN(candidates, Math.min(want, candidates.length));
-    for (const w of picks) result.add(w);
+    for (const w of picks) result.set(w, lang);
   }
 
-  // Pass 2: backfill any deficit from any language (deduped against result + exclude).
+  // Pass 2: backfill any deficit from any language.
   if (result.size < size) {
     const allLang = shuffle(langList);
     let attempts = 0;
@@ -75,7 +84,7 @@ export function drawPool(
       const lang = allLang[attempts % allLang.length];
       const list = load(lang);
       const w = list[Math.floor(Math.random() * list.length)];
-      if (!excludeSet.has(w) && !result.has(w)) result.add(w);
+      if (!excludeSet.has(w) && !result.has(w)) result.set(w, lang);
       attempts++;
     }
     if (result.size < size) {
@@ -85,7 +94,11 @@ export function drawPool(
     }
   }
 
-  return shuffle(Array.from(result));
+  // Shuffle the order; preserve the lang map keyed by word.
+  const words = shuffle(Array.from(result.keys()));
+  const langsOut: Record<string, Language> = {};
+  for (const w of words) langsOut[w] = result.get(w)!;
+  return { words, langs: langsOut };
 }
 
 function sampleN(arr: readonly string[], n: number): string[] {
