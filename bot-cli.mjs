@@ -102,9 +102,16 @@ function projectPath(obj, path) {
   return cur;
 }
 
-/** Wrap a console.log call so the caller can request a sub-field via --field PATH. */
+/** Wrap a console.log call so the caller can request a sub-field via --field PATH or --fields A,B,C. */
 function emitJSON(payload) {
-  if (args.field) {
+  if (args.fields) {
+    const out = {};
+    for (const path of args.fields.split(",").map((s) => s.trim()).filter(Boolean)) {
+      const sub = projectPath(payload, path);
+      out[path] = sub === undefined ? null : sub;
+    }
+    console.log(JSON.stringify(out));
+  } else if (args.field) {
     const sub = projectPath(payload, args.field);
     console.log(JSON.stringify(sub === undefined ? null : sub));
   } else {
@@ -125,7 +132,9 @@ async function main() {
         "",
         "Commands:",
         "  create --url URL --name NAME [--language en] [--scoring symmetric] \\",
-        "         [--points-per-player 10] [--axes-json '[{\"left\":\"...\",\"right\":\"...\"}, ...]']",
+        "         [--profile-mode binary] [--points-per-player 18] [--pool-size 20] \\",
+        "         [--accuracy-bonus 2] \\",
+        "         [--axes-json '[{\"left\":\"...\",\"right\":\"...\"}, ...]']",
         "         → prints {playerId, sessionToken, roomCode, state}.",
         "         The creator is the host.",
         "  join   --url URL --room CODE --name NAME",
@@ -144,6 +153,7 @@ async function main() {
         "Add --field PATH to any command to print only a sub-value (dot-notation,",
         "  e.g. --field state.phase, --field state.me.owedAction,",
         "  --field state.round.pendingGuesses.0.clueWord).",
+        "Or --fields A,B,C for batched: returns an object keyed by each path.",
         "",
         "All output is single-line JSON on stdout. Errors are JSON on stderr + exit 1.",
       ].join("\n"),
@@ -161,11 +171,15 @@ async function main() {
     const settings = {};
     if (args.language) settings.language = args.language;
     if (args.scoring) settings.scoring = args.scoring;
+    if (args["profile-mode"]) settings.profileMode = args["profile-mode"];
     if (args["points-per-player"]) {
       settings.pointsPerPlayer = parseInt(args["points-per-player"], 10);
     }
     if (args["pool-size"]) {
       settings.poolSize = parseInt(args["pool-size"], 10);
+    }
+    if (args["accuracy-bonus"]) {
+      settings.publicAccuracyBonus = parseInt(args["accuracy-bonus"], 10);
     }
     if (args["axes-json"]) {
       try {

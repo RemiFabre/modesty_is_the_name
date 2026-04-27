@@ -56,89 +56,13 @@ export interface ProfilePreset {
   axes: AxisPair[];
 }
 
+/**
+ * Curated presets — each is 4 binary-friendly axes, vetted via playtests.
+ * The earlier 10 presets were narrowed to 4 to converge on quality.
+ * See agent reviews from games 1–2 for the rationale (axes that flatten to
+ * "neutral" too easily — Abstract/Concrete, Old/New — were dropped).
+ */
 export const PROFILE_PRESETS: ProfilePreset[] = [
-  {
-    id: "geopolitical",
-    label: "Geopolitical",
-    axes: [
-      { left: "War", right: "Peace" },
-      { left: "Freedom", right: "Control" },
-      { left: "Tradition", right: "Progress" },
-      { left: "Isolation", right: "Engagement" },
-    ],
-  },
-  {
-    id: "conceptual",
-    label: "Conceptual",
-    axes: [
-      { left: "Light", right: "Heavy" },
-      { left: "Abstract", right: "Concrete" },
-      { left: "Fast", right: "Slow" },
-      { left: "Old", right: "New" },
-    ],
-  },
-  {
-    id: "mood",
-    label: "Mood",
-    axes: [
-      { left: "Joyful", right: "Sorrowful" },
-      { left: "Calm", right: "Chaotic" },
-      { left: "Warm", right: "Cold" },
-    ],
-  },
-  {
-    id: "aesthetic",
-    label: "Aesthetic",
-    axes: [
-      { left: "Minimal", right: "Ornate" },
-      { left: "Smooth", right: "Rough" },
-      { left: "Bright", right: "Dark" },
-      { left: "Soft", right: "Sharp" },
-      { left: "Quiet", right: "Loud" },
-    ],
-  },
-  {
-    id: "personality",
-    label: "Personality",
-    axes: [
-      { left: "Open", right: "Conventional" },
-      { left: "Conscientious", right: "Carefree" },
-      { left: "Extraverted", right: "Introverted" },
-      { left: "Agreeable", right: "Competitive" },
-      { left: "Stable", right: "Anxious" },
-    ],
-  },
-  {
-    id: "adventure",
-    label: "Adventure",
-    axes: [
-      { left: "Brave", right: "Cautious" },
-      { left: "Wild", right: "Civilized" },
-      { left: "Solo", right: "Collective" },
-    ],
-  },
-  {
-    id: "civilization",
-    label: "Civilization",
-    axes: [
-      { left: "Agricultural", right: "Industrial" },
-      { left: "Land", right: "Sea" },
-      { left: "Religious", right: "Secular" },
-      { left: "Authoritarian", right: "Democratic" },
-      { left: "Insular", right: "Cosmopolitan" },
-      { left: "Martial", right: "Mercantile" },
-    ],
-  },
-  {
-    id: "elements",
-    label: "Elements",
-    axes: [
-      { left: "Fire", right: "Water" },
-      { left: "Earth", right: "Air" },
-      { left: "Day", right: "Night" },
-      { left: "Life", right: "Death" },
-    ],
-  },
   {
     id: "storyteller",
     label: "Storyteller",
@@ -150,12 +74,33 @@ export const PROFILE_PRESETS: ProfilePreset[] = [
     ],
   },
   {
-    id: "style",
-    label: "Style",
+    id: "texture",
+    label: "Texture",
     axes: [
-      { left: "Classic", right: "Modern" },
-      { left: "Restrained", right: "Excessive" },
-      { left: "Earnest", right: "Ironic" },
+      { left: "Light", right: "Heavy" },
+      { left: "Soft", right: "Sharp" },
+      { left: "Bright", right: "Dark" },
+      { left: "Quiet", right: "Loud" },
+    ],
+  },
+  {
+    id: "temperament",
+    label: "Temperament",
+    axes: [
+      { left: "Brave", right: "Cautious" },
+      { left: "Wild", right: "Civilized" },
+      { left: "Solitary", right: "Social" },
+      { left: "Playful", right: "Serious" },
+    ],
+  },
+  {
+    id: "forces",
+    label: "Forces",
+    axes: [
+      { left: "Fast", right: "Slow" },
+      { left: "Natural", right: "Artificial" },
+      { left: "Calm", right: "Chaotic" },
+      { left: "Strong", right: "Fragile" },
     ],
   },
 ];
@@ -164,6 +109,18 @@ export const DEFAULT_PROFILE_AXES: AxisPair[] =
   PROFILE_PRESETS.find((p) => p.id === "storyteller")!.axes;
 
 export type ScoringMode = "symmetric" | "generous" | "risky";
+
+/**
+ * Profile axis value mode.
+ * - "gradient": each axis takes a 1..5 integer (5 levels, classic).
+ * - "binary":  each axis takes ONLY the two extremes (1 = left, 5 = right).
+ *   Designed to fix the "regression-to-mean" problem where extreme profiles
+ *   get smoothed toward 3 by cautious default-3 guesses.
+ */
+export type ProfileMode = "gradient" | "binary";
+
+export const PROFILE_BINARY_LOW = 1;
+export const PROFILE_BINARY_HIGH = 5;
 
 export const SCORING_MODES: ScoringMode[] = ["symmetric", "generous", "risky"];
 
@@ -215,6 +172,8 @@ export interface RoomSettings {
   pointsPerPlayer: number;
   /** The axis pairs for the profile-guessing meta-layer. 3..8 entries. */
   profileAxes: AxisPair[];
+  /** Whether axis values are gradient 1..5 or binary {1, 5}. */
+  profileMode: ProfileMode;
   /** End-of-game bonus: for each player, +N for each axis where their rounded public figure matches their true profile. */
   publicAccuracyBonus: number;
 }
@@ -222,13 +181,14 @@ export interface RoomSettings {
 export const DEFAULT_SETTINGS: RoomSettings = {
   language: "en",
   scoring: "symmetric",
-  poolSize: 25,
+  poolSize: 20,
   cluePhaseSeconds: 120,
   guessPhaseSeconds: 60,
   initialBankSeconds: 180,
   maxBankSeconds: 240,
-  pointsPerPlayer: 10,
+  pointsPerPlayer: 18,
   profileAxes: DEFAULT_PROFILE_AXES,
+  profileMode: "binary",
   publicAccuracyBonus: 2,
 };
 

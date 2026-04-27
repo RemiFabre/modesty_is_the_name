@@ -129,11 +129,14 @@ Inputs to use: that target's clue, the pool, the opponent's `nations` entry (the
 Process:
 1. Look at the clue word. Identify which `clueCount` words in the pool best fit the cluster they'd intend.
 2. Submit those as `--picks`.
-3. **Profile axes**: for each axis in `state.settings.profileAxes`, pick a 1–5 value. Use:
-   - `state.nations[opponent].averageAxes[i]` if there's enough samples — this is the table's running read.
-   - The opponent's clue history (`state.nations[opponent].clueHistory`) — the words they've used to clue so far hint at their identity.
+3. **Profile axes**: for each axis in `state.settings.profileAxes`, pick a value. Two modes:
+   - **`state.settings.profileMode === "gradient"`**: integer 1–5. Default to **3** (middle) when unsure.
+   - **`state.settings.profileMode === "binary"`**: only **1** (left end) or **5** (right end). The middle is gone — you must commit. The server REJECTS values 2/3/4 in binary mode. When unsure, pick whichever feels even slightly more likely (or random).
+   Use to inform your read:
+   - `state.nations[opponent].averageAxes[i]` if there are samples — the table's running read.
+   - The opponent's clue history (`state.nations[opponent].clueHistory`) — patterns hint at their identity.
    - The current round's clue word — the strongest signal you have right now.
-4. If you have no read on an axis, default to **3** (middle). Don't pick extremes blindly.
+4. In gradient mode, hedge to 3 when uncertain. In binary mode, commit — you cannot abstain.
 5. Output: `guess --target <playerId> --picks w1,w2 --axes 1,2,3,4`.
 
 (All pending opponents in submission order are also available as `state.round.pendingGuesses[]` if you want to plan ahead.)
@@ -238,6 +241,16 @@ them easy or hard to express through clues? Easy or hard to read on
 opponents? Suggest axes you'd want to try next time, or pairs that
 felt broken.
 
+## Profile-mode feedback (gradient vs binary)
+Did the binary 1/5 commit-or-don't feel better or worse than a
+1–5 gradient (if you've played both)? Did being forced to extreme
+values change how you cluéd, or how you read others?
+
+## Pool size feedback
+The pool is `state.settings.poolSize` words. Did it feel too large
+(diluted clusters) or too small (forced overlap)? Suggest the
+ideal size for the constraint level we're playing at.
+
 ## Pacing & abstract observations
 How did the game feel? Too fast? Too slow? Did the strategic layer
 matter? Was the round count right? Was the public-figure feedback
@@ -245,6 +258,15 @@ loop interesting or noise?
 
 ## One memorable moment
 A clue you regret, a guess that landed, an inference you got wrong, etc.
+
+## A new constraint mechanic — your pitch
+The current "constraint" each player is under is the profile-axis
+identity (be legible on these axes). What other constraint
+mechanics could the game support? Be wild. Examples to spark ideas
+(don't have to use these): forced phonemes/letters in clue words,
+acrostic streaks, hand of forbidden pool words, secret end-game
+agendas, vows, role decks. Pitch ONE concrete idea — what it
+constrains, how it's revealed, and how it'd score.
 ```
 
 Keep the whole thing under ~400 words. Honest > positive. The point is to feed back into design.

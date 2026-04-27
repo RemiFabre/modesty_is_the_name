@@ -11,10 +11,13 @@ import {
   PROFILE_AXES_MIN,
   PROFILE_AXIS_MAX,
   PROFILE_AXIS_MIN,
+  PROFILE_BINARY_HIGH,
+  PROFILE_BINARY_LOW,
   riskyReward,
   SCORING_MODES,
   SETTINGS_BOUNDS,
   type AxisPair,
+  type ProfileMode,
   type FullClue,
   type Phase,
   type OwedAction,
@@ -154,6 +157,9 @@ export function clampSettings(input: Partial<RoomSettings>): RoomSettings {
   if (!SCORING_MODES.includes(merged.scoring)) {
     merged.scoring = DEFAULT_SETTINGS.scoring;
   }
+  if (merged.profileMode !== "gradient" && merged.profileMode !== "binary") {
+    merged.profileMode = DEFAULT_SETTINGS.profileMode;
+  }
   merged.profileAxes = cleanProfileAxes(merged.profileAxes);
   for (const [key, bounds] of Object.entries(SETTINGS_BOUNDS) as [
     keyof typeof SETTINGS_BOUNDS,
@@ -213,13 +219,17 @@ function makePlayer(name: string, isHost: boolean, bankSeconds: number): Player 
   };
 }
 
-function randomProfile(numAxes: number): number[] {
+function randomProfile(numAxes: number, mode: ProfileMode): number[] {
   const result: number[] = [];
   for (let i = 0; i < numAxes; i++) {
-    result.push(
-      PROFILE_AXIS_MIN +
-        Math.floor(Math.random() * (PROFILE_AXIS_MAX - PROFILE_AXIS_MIN + 1)),
-    );
+    if (mode === "binary") {
+      result.push(Math.random() < 0.5 ? PROFILE_BINARY_LOW : PROFILE_BINARY_HIGH);
+    } else {
+      result.push(
+        PROFILE_AXIS_MIN +
+          Math.floor(Math.random() * (PROFILE_AXIS_MAX - PROFILE_AXIS_MIN + 1)),
+      );
+    }
   }
   return result;
 }
@@ -371,7 +381,10 @@ export function startGame(room: Room, player: Player): void {
   if (room.phase !== "lobby") throw new Error("Game already started");
   if (room.players.length < 2) throw new Error("Need at least 2 players to start");
   for (const p of room.players) {
-    p.profile = randomProfile(room.settings.profileAxes.length);
+    p.profile = randomProfile(
+      room.settings.profileAxes.length,
+      room.settings.profileMode,
+    );
   }
   room.phase = "round";
   room.round = newRound(room, 1);
@@ -477,7 +490,11 @@ export function submitGuess(
   if (picks.length !== targetClue.count) {
     throw new Error(`Pick exactly ${targetClue.count} words`);
   }
-  const axes = validateAxisGuess(axesRaw, room.settings.profileAxes.length);
+  const axes = validateAxisGuess(
+    axesRaw,
+    room.settings.profileAxes.length,
+    room.settings.profileMode,
+  );
   const now = Date.now();
   closeAllBanks(room, now);
   outer.set(targetId, picks);
@@ -499,7 +516,11 @@ export function submitGuess(
   tryResolveRound(room);
 }
 
-function validateAxisGuess(raw: unknown, expectedLength: number): number[] {
+function validateAxisGuess(
+  raw: unknown,
+  expectedLength: number,
+  mode: ProfileMode,
+): number[] {
   if (!Array.isArray(raw)) throw new Error("Bad axis guess");
   if (raw.length !== expectedLength) {
     throw new Error(`Axis guess must have exactly ${expectedLength} values`);
@@ -509,11 +530,19 @@ function validateAxisGuess(raw: unknown, expectedLength: number): number[] {
     if (typeof v !== "number" || !Number.isFinite(v)) {
       throw new Error("Axis values must be numbers");
     }
-    const n = Math.round(v);
-    if (n < PROFILE_AXIS_MIN || n > PROFILE_AXIS_MAX) {
-      throw new Error(
-        `Axis values must be between ${PROFILE_AXIS_MIN} and ${PROFILE_AXIS_MAX}`,
-      );
+    let n = Math.round(v);
+    if (mode === "binary") {
+      if (n !== PROFILE_BINARY_LOW && n !== PROFILE_BINARY_HIGH) {
+        throw new Error(
+          `In binary mode, axis values must be exactly ${PROFILE_BINARY_LOW} or ${PROFILE_BINARY_HIGH}`,
+        );
+      }
+    } else {
+      if (n < PROFILE_AXIS_MIN || n > PROFILE_AXIS_MAX) {
+        throw new Error(
+          `Axis values must be between ${PROFILE_AXIS_MIN} and ${PROFILE_AXIS_MAX}`,
+        );
+      }
     }
     result.push(n);
   }
@@ -662,6 +691,14 @@ function tryResolveRound(room: Room): void {
   closeAllBanks(room, Date.now());
 }
 
+function snapToValid(avg: number, mode: ProfileMode): number {
+  if (mode === "binary") {
+    // Threshold midway between 1 and 5 (= 3): below → 1 (LOW), at-or-above → 5 (HIGH).
+    return avg < 3 ? PROFILE_BINARY_LOW : PROFILE_BINARY_HIGH;
+  }
+  return Math.round(avg);
+}
+
 function applyPublicAccuracyBonus(room: Room): void {
   const numAxes = room.settings.profileAxes.length;
   for (const target of room.players) {
@@ -670,7 +707,7 @@ function applyPublicAccuracyBonus(room: Room): void {
     if (!sums || samples === 0) continue;
     let matches = 0;
     for (let i = 0; i < numAxes; i++) {
-      const rounded = Math.round(sums[i] / samples);
+      const rounded = snapToValid(sums[i] / samples, room.settings.profileMode);
       if (rounded === target.profile[i]) matches++;
     }
     const bonus = matches * room.settings.publicAccuracyBonus;
@@ -904,7 +941,7 @@ function computeAccuracy(room: Room): ProfileAccuracy[] {
     if (sums && samples > 0) {
       for (let i = 0; i < numAxes; i++) {
         const raw = sums[i] / samples;
-        const r = Math.round(raw);
+        const r = snapToValid(raw, room.settings.profileMode);
         rawPublic[i] = raw;
         roundedPublic[i] = r;
         matches[i] = r === target.profile[i];
