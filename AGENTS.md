@@ -71,25 +71,35 @@ Returned by `join` and `status` as `{state: PublicState}`. Key fields you need:
 
 ## 3. Decision loop
 
+The server pre-computes what you owe next. **Branch on `state.me.owedAction`** — you don't have to derive it.
+
 ```
-1. Join with --name, save sessionToken.
-2. Loop until state.phase === "ended":
-   a. status → state
-   b. Switch on phase:
-      - "lobby": wait. If you're the host, start when you want. (You won't usually be host as a bot.)
-      - "round": decide based on what you owe:
-          • If me.clue is null: pick a clue (Phase A). See §4.
-          • Else if there's an opponent in round.hasClue
-            you haven't guessed (not in me.guesses):
-            guess that opponent (Phase B). See §5.
-          • Else: wait — you've done your part this round.
-      - "reveal": just wait for host to advance, OR if you ARE host, run `next`.
-      - "ended": done. Print final scoreboard summary.
-   c. Sleep 2–4s before re-polling so the server isn't pounded.
-3. Final state printout.
+1. Join (or rejoin with sessionToken)
+2. Loop until phase === "ended":
+   action = status.state.me.owedAction
+   switch (action) {
+     case "host_start":       → call `start` when state.players.length is the expected count
+     case "wait_for_start":   → sleep 3s, re-poll
+     case "submit_clue":      → pick clue + intended, call `clue` (see §4)
+     case "submit_guess":     → state.me.nextTarget tells you whom; call `guess` (see §5)
+     case "wait_for_others":  → you're done this round, sleep 3s, re-poll
+     case "host_advance":     → call `next` to advance reveal → next round (sleep ~3s before, give time to read results)
+     case "wait_for_advance": → sleep 3s, re-poll
+     case "review":           → game over, write review (§10), exit
+   }
+   sleep 2-3s
 ```
 
-Don't poll faster than once every 2 seconds; the game runs at human pace.
+**Token efficiency:** if you only need one field, use `--field PATH`:
+```
+node bot-cli.mjs status --token X --room Y --field state.me.owedAction
+# → "submit_clue"
+
+node bot-cli.mjs status --token X --room Y --field state.round.pendingGuesses
+# → [{playerId,name,clueWord,clueCount}, ...]
+```
+
+Don't poll faster than once every 2 seconds.
 
 ---
 
@@ -112,19 +122,21 @@ Heuristics:
 
 ## 5. Guessing for an opponent
 
-Inputs: opponent's clue word, opponent's clue count, the pool, the opponent's `nations` entry (their full clue history + table's running read on their axes).
+The server gives you `state.me.nextTarget` (the opponent to guess for next, or `null` if you have nothing pending). Fields: `playerId`, `name`, `clueWord`, `clueCount`.
+
+Inputs to use: that target's clue, the pool, the opponent's `nations` entry (their full clue history + table's running read on their axes).
 
 Process:
-1. Look at the opponent's clue word. Identify which `count` words in the pool best fit the cluster they'd intend.
+1. Look at the clue word. Identify which `clueCount` words in the pool best fit the cluster they'd intend.
 2. Submit those as `--picks`.
-3. **Profile axes**: for each axis in `settings.profileAxes`, pick a 1–5 value. Use:
-   - `nations[opponent].averageAxes[i]` if there's enough samples — this is the table's running read.
-   - The opponent's clue history (`nations[opponent].clueHistory`) — the words they've used to clue so far hint at their identity.
+3. **Profile axes**: for each axis in `state.settings.profileAxes`, pick a 1–5 value. Use:
+   - `state.nations[opponent].averageAxes[i]` if there's enough samples — this is the table's running read.
+   - The opponent's clue history (`state.nations[opponent].clueHistory`) — the words they've used to clue so far hint at their identity.
    - The current round's clue word — the strongest signal you have right now.
 4. If you have no read on an axis, default to **3** (middle). Don't pick extremes blindly.
-5. Output: `guess --target OPP_ID --picks w1,w2 --axes 1,2,3,4`.
+5. Output: `guess --target <playerId> --picks w1,w2 --axes 1,2,3,4`.
 
-Find the opponent's `playerId` via `Object.entries(state.round.opponentClues)` — opponents are sorted by submission time elsewhere, but `id` is what you pass to `--target`.
+(All pending opponents in submission order are also available as `state.round.pendingGuesses[]` if you want to plan ahead.)
 
 ---
 

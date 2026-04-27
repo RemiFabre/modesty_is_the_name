@@ -17,6 +17,8 @@ import {
   type AxisPair,
   type FullClue,
   type Phase,
+  type OwedAction,
+  type PendingGuess,
   type ProfileAccuracy,
   type ProfileFeedback,
   type PublicClue,
@@ -712,6 +714,9 @@ export function viewFor(room: Room, playerId: string): PublicState {
   const isReveal = room.phase === "reveal" || room.phase === "ended";
   const showOthersScores = room.phase === "ended";
 
+  const isAnonRound = room.phase === "round" && room.round !== null;
+  const labels = room.round?.labels;
+
   const myProfileGuessesPublic: { [k: string]: number[] } = {};
   let publicRound = null;
   let publicMe = {
@@ -719,6 +724,8 @@ export function viewFor(room: Room, playerId: string): PublicState {
     guesses: {} as { [k: string]: string[] },
     profileGuesses: myProfileGuessesPublic,
     profile: me?.profile ?? [],
+    owedAction: "idle" as OwedAction,
+    nextTarget: null as PendingGuess | null,
     bankSeconds: me?.bankSeconds ?? 0,
     bankActiveSince: me?.bankActiveSince ?? null,
   };
@@ -759,6 +766,30 @@ export function viewFor(room: Room, playerId: string): PublicState {
       }
     }
 
+    // Compute pending guesses (server convenience for agents).
+    const pendingGuesses: PendingGuess[] = [];
+    if (myClue) {
+      const opps = Object.entries(cluesPublic)
+        .map(([id, c]) => ({ id, c }))
+        .sort((a, b) => a.c.submittedAt - b.c.submittedAt);
+      for (const opp of opps) {
+        if (round.guesses.get(playerId)?.has(opp.id)) continue;
+        const player = room.players.find((p) => p.id === opp.id);
+        if (!player) continue;
+        const isAnon = isAnonRound;
+        const displayName =
+          isAnon && opp.id !== playerId
+            ? labels?.get(opp.id) ?? player.name
+            : player.name;
+        pendingGuesses.push({
+          playerId: opp.id,
+          name: displayName,
+          clueWord: opp.c.word,
+          clueCount: opp.c.count,
+        });
+      }
+    }
+
     publicRound = {
       number: round.number,
       pool: round.pool,
@@ -766,6 +797,7 @@ export function viewFor(room: Room, playerId: string): PublicState {
       hasClue: Array.from(round.clues.keys()),
       opponentClues: cluesPublic,
       allGuesses: guessesPublic,
+      pendingGuesses,
     };
     const myGuesses: { [k: string]: string[] } = {};
     const guessesByMe = round.guesses.get(playerId);
@@ -785,22 +817,19 @@ export function viewFor(room: Room, playerId: string): PublicState {
       guesses: myGuesses,
       profileGuesses: myProfileGuessesPublic,
       profile: me?.profile ?? [],
-      bankSeconds: me?.bankSeconds ?? 0,
-      bankActiveSince: me?.bankActiveSince ?? null,
-    };
-  } else {
-    publicMe = {
-      clue: null,
-      guesses: {},
-      profileGuesses: myProfileGuessesPublic,
-      profile: me?.profile ?? [],
+      owedAction: "idle",
+      nextTarget: pendingGuesses[0] ?? null,
       bankSeconds: me?.bankSeconds ?? 0,
       bankActiveSince: me?.bankActiveSince ?? null,
     };
   }
 
-  const isAnonRound = room.phase === "round" && room.round !== null;
-  const labels = room.round?.labels;
+  // Compute owedAction now that we have the full public state.
+  publicMe.owedAction = computeOwedAction(
+    room,
+    me ?? null,
+    publicRound?.pendingGuesses ?? [],
+  );
 
   // Build nations (always present once round exists).
   const nations: PublicNation[] = room.players.map((p) => buildNation(room, p));
@@ -891,6 +920,31 @@ function computeAccuracy(room: Room): ProfileAccuracy[] {
       bonus: matchCount * room.settings.publicAccuracyBonus,
     };
   });
+}
+
+function computeOwedAction(
+  room: Room,
+  me: Player | null,
+  pendingGuesses: PendingGuess[],
+): OwedAction {
+  if (!me) return "idle";
+  switch (room.phase) {
+    case "lobby":
+      return me.isHost ? "host_start" : "wait_for_start";
+    case "round": {
+      const round = room.round;
+      if (!round) return "idle";
+      if (!round.clues.has(me.id)) return "submit_clue";
+      if (pendingGuesses.length > 0) return "submit_guess";
+      return "wait_for_others";
+    }
+    case "reveal":
+      return me.isHost ? "host_advance" : "wait_for_advance";
+    case "ended":
+      return "review";
+    default:
+      return "idle";
+  }
 }
 
 function buildNation(room: Room, target: Player): PublicNation {

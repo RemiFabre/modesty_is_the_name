@@ -90,6 +90,28 @@ function parseList(raw) {
     .filter(Boolean);
 }
 
+/** Project a dotted path into an object: "a.b.0.c" → obj.a.b[0].c. Returns undefined if any segment is missing. */
+function projectPath(obj, path) {
+  if (!path) return obj;
+  const segs = path.split(".").filter(Boolean);
+  let cur = obj;
+  for (const s of segs) {
+    if (cur == null) return undefined;
+    cur = cur[s];
+  }
+  return cur;
+}
+
+/** Wrap a console.log call so the caller can request a sub-field via --field PATH. */
+function emitJSON(payload) {
+  if (args.field) {
+    const sub = projectPath(payload, args.field);
+    console.log(JSON.stringify(sub === undefined ? null : sub));
+  } else {
+    console.log(JSON.stringify(payload));
+  }
+}
+
 async function main() {
   if (!cmd) die("usage: bot-cli.mjs <join|status|clue|guess|next|start> ...");
 
@@ -118,6 +140,10 @@ async function main() {
         "  next   --url URL --room CODE --token TOKEN          (host only)",
         "",
         "Env vars: MODESTY_URL / MODESTY_ROOM / MODESTY_TOKEN replace the flags.",
+        "",
+        "Add --field PATH to any command to print only a sub-value (dot-notation,",
+        "  e.g. --field state.phase, --field state.me.owedAction,",
+        "  --field state.round.pendingGuesses.0.clueWord).",
         "",
         "All output is single-line JSON on stdout. Errors are JSON on stderr + exit 1.",
       ].join("\n"),
@@ -158,14 +184,12 @@ async function main() {
       die({ error: ack.error });
     }
     await new Promise((r) => setTimeout(r, 250));
-    console.log(
-      JSON.stringify({
-        playerId: ack.playerId,
-        sessionToken: ack.sessionToken,
-        roomCode: ack.roomCode,
-        state: lastState,
-      }),
-    );
+    emitJSON({
+      playerId: ack.playerId,
+      sessionToken: ack.sessionToken,
+      roomCode: ack.roomCode,
+      state: lastState,
+    });
     sock.disconnect();
     return;
   }
@@ -201,12 +225,12 @@ async function main() {
 
   switch (cmd) {
     case "status": {
-      console.log(JSON.stringify({ state }));
+      emitJSON({ state });
       break;
     }
     case "start": {
       const ack = await emit(sock, "room:start");
-      console.log(JSON.stringify(ack));
+      emitJSON(ack);
       break;
     }
     case "clue": {
@@ -216,7 +240,7 @@ async function main() {
         word: args.word,
         intended,
       });
-      console.log(JSON.stringify(ack));
+      emitJSON(ack);
       break;
     }
     case "guess": {
@@ -228,12 +252,12 @@ async function main() {
         picks,
         axes,
       });
-      console.log(JSON.stringify(ack));
+      emitJSON(ack);
       break;
     }
     case "next": {
       const ack = await emit(sock, "round:next");
-      console.log(JSON.stringify(ack));
+      emitJSON(ack);
       break;
     }
     default:

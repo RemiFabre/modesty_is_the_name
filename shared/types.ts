@@ -297,6 +297,35 @@ export interface FullClue extends Clue {
   intended: string[];
 }
 
+export type OwedAction =
+  /** Lobby phase, you're host: call `start` when expected players are in. */
+  | "host_start"
+  /** Lobby phase, you're not host: just wait. */
+  | "wait_for_start"
+  /** Round phase, you haven't submitted a clue. */
+  | "submit_clue"
+  /** Round phase, there's an opponent you owe a guess for. See `me.nextTarget`. */
+  | "submit_guess"
+  /** Round phase, you've done your part — wait for the rest of the table. */
+  | "wait_for_others"
+  /** Reveal phase, you're host: call `next` to advance. */
+  | "host_advance"
+  /** Reveal phase, you're not host: wait for advance. */
+  | "wait_for_advance"
+  /** Game has ended — write your review and exit. */
+  | "review"
+  /** Anything else (rare). */
+  | "idle";
+
+export interface PendingGuess {
+  /** The opponent's player ID. Pass this to `bot-cli guess --target <id>`. */
+  playerId: string;
+  /** Real name (during round phase: anonymous label). */
+  name: string;
+  clueWord: string;
+  clueCount: number;
+}
+
 export interface PublicMe {
   clue: FullClue | null;
   guesses: { [targetId: string]: string[] };
@@ -304,6 +333,10 @@ export interface PublicMe {
   profileGuesses: { [targetId: string]: number[] };
   /** My own profile (always visible to me). */
   profile: number[];
+  /** Server-computed: what action this player owes next. Saves agents the bookkeeping. */
+  owedAction: OwedAction;
+  /** When `owedAction === "submit_guess"`, the opponent to guess for next (in submission order). */
+  nextTarget: PendingGuess | null;
   /** Snapshot bank value at the last "close" event. */
   bankSeconds: number;
   /** When non-null, the bank is running (counting down) since this timestamp (server clock). */
@@ -353,6 +386,8 @@ export interface PublicRound {
   opponentClues: { [playerId: string]: PublicClue };
   /** During the round: only my own guesses. During reveal: everyone's guesses. */
   allGuesses: { [guesserId: string]: { [targetId: string]: string[] } };
+  /** Server-computed: opponents I still owe a guess for, in submission order. Empty if I'm done. */
+  pendingGuesses: PendingGuess[];
 }
 
 export interface PublicState {
