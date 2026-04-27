@@ -90,6 +90,7 @@ export function Reveal({ state }: { state: PublicState }) {
 }
 
 function ProfileResults({ state }: { state: PublicState }) {
+  if (!state.settings.publicFigures) return null;
   const fb = state.profileFeedback;
   if (!fb) return null;
   const axes = state.settings.profileAxes;

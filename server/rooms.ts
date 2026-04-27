@@ -569,11 +569,13 @@ export function submitGuess(
   if (picks.length !== targetClue.count) {
     throw new Error(`Pick exactly ${targetClue.count} words`);
   }
-  const axes = validateAxisGuess(
-    axesRaw,
-    room.settings.profileAxes.length,
-    room.settings.profileMode,
-  );
+  const axes = room.settings.publicFigures
+    ? validateAxisGuess(
+        axesRaw,
+        room.settings.profileAxes.length,
+        room.settings.profileMode,
+      )
+    : [];
   const now = Date.now();
   closeAllBanks(room, now);
   outer.set(targetId, picks);

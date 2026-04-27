@@ -45,6 +45,7 @@ export function Ended({ state }: { state: PublicState }) {
             accuracy={state.accuracy?.find((a) => a.playerId === p.id)}
             nation={state.nations?.find((n) => n.playerId === p.id)}
             publicAccuracyBonus={state.settings.publicAccuracyBonus}
+            profilesActive={state.settings.publicFigures}
           />
         ))}
       </main>
@@ -61,6 +62,7 @@ function PlayerScorecard({
   accuracy,
   nation,
   publicAccuracyBonus,
+  profilesActive,
 }: {
   player: PublicPlayer;
   rank: number;
@@ -70,6 +72,7 @@ function PlayerScorecard({
   accuracy?: ProfileAccuracy;
   nation?: PublicNation;
   publicAccuracyBonus: number;
+  profilesActive: boolean;
 }) {
   const b = player.breakdown;
   return (
@@ -99,21 +102,25 @@ function PlayerScorecard({
           icon="📣"
           points={b.wordTarget}
         />
-        <BreakdownRow
-          label="Profile axes you read right"
-          icon="🔍"
-          points={b.profileGuesser}
-        />
-        <BreakdownRow
-          label="Profile axes others read right on you"
-          icon="🪞"
-          points={b.profileTarget}
-        />
-        <BreakdownRow
-          label={`Public-figure accuracy bonus (+${publicAccuracyBonus} per matching axis)`}
-          icon="✨"
-          points={b.accuracyBonus}
-        />
+        {profilesActive && (
+          <>
+            <BreakdownRow
+              label="Profile axes you read right"
+              icon="🔍"
+              points={b.profileGuesser}
+            />
+            <BreakdownRow
+              label="Profile axes others read right on you"
+              icon="🪞"
+              points={b.profileTarget}
+            />
+            <BreakdownRow
+              label={`Public-figure accuracy bonus (+${publicAccuracyBonus} per matching axis)`}
+              icon="✨"
+              points={b.accuracyBonus}
+            />
+          </>
+        )}
       </ul>
 
       {nation && nation.clueHistory.length > 0 && (
@@ -129,7 +136,7 @@ function PlayerScorecard({
         </blockquote>
       )}
 
-      {accuracy && (
+      {profilesActive && accuracy && (
         <div className="profile-readout">
           {axes.map((a, i) => (
             <AxisRow

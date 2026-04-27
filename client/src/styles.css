@@ -852,6 +852,33 @@ select:focus {
   border-color: var(--accent-2);
 }
 
+.axis-binary-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.axis-binary-btn {
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.85rem 0.6rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-height: 52px;
+  text-align: center;
+  word-break: break-word;
+}
+
+.axis-binary-left {
+  text-align: left;
+}
+
+.axis-binary-right {
+  text-align: right;
+}
+
 /* === Nations panel === */
 
 .nations {

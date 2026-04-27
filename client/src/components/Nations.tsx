@@ -3,13 +3,16 @@ import type { AxisPair, PublicState } from "../../../shared/types";
 export function NationsPanel({ state }: { state: PublicState }) {
   const axes = state.settings.profileAxes;
   const nations = state.nations;
+  const profilesActive = state.settings.publicFigures;
   if (!nations || nations.length === 0) return null;
 
   return (
     <section className="card subtle">
       <h2>Nations</h2>
       <p className="muted small">
-        What each player has said and how the table currently reads them.
+        {profilesActive
+          ? "What each player has said and how the table currently reads them."
+          : "What each player has said so far."}
       </p>
       <ul className="nations">
         {nations.map((n) => {
@@ -36,16 +39,18 @@ export function NationsPanel({ state }: { state: PublicState }) {
                   ))
                 )}
               </div>
-              <div className="nation-axes">
-                {axes.map((axis, i) => (
-                  <AxisReading
-                    key={i}
-                    axis={axis}
-                    average={n.averageAxes[i]}
-                    selfValue={myProfile ? myProfile[i] : null}
-                  />
-                ))}
-              </div>
+              {profilesActive && (
+                <div className="nation-axes">
+                  {axes.map((axis, i) => (
+                    <AxisReading
+                      key={i}
+                      axis={axis}
+                      average={n.averageAxes[i]}
+                      selfValue={myProfile ? myProfile[i] : null}
+                    />
+                  ))}
+                </div>
+              )}
             </li>
           );
         })}
