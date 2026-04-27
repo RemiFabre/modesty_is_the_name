@@ -99,6 +99,22 @@ export function Lobby({ state }: { state: PublicState }) {
               </strong>
             </li>
             <li>
+              <span>Polyglot cluster bonus</span>
+              <strong>
+                {state.settings.polyglotBonus
+                  ? state.settings.languages.length > 1
+                    ? "On"
+                    : "On (inactive, single language)"
+                  : "Off"}
+              </strong>
+            </li>
+            <li>
+              <span>Profile play</span>
+              <strong>
+                {state.settings.publicFigures ? "On (public figures)" : "Off"}
+              </strong>
+            </li>
+            <li>
               <span>Profile axes</span>
               <strong>
                 {state.settings.profileAxes
@@ -106,10 +122,12 @@ export function Lobby({ state }: { state: PublicState }) {
                   .join(" · ")}
               </strong>
             </li>
-            <li>
-              <span>Public-accuracy bonus</span>
-              <strong>+{state.settings.publicAccuracyBonus} per axis (end of game)</strong>
-            </li>
+            {state.settings.publicFigures && (
+              <li>
+                <span>Public-accuracy bonus</span>
+                <strong>+{state.settings.publicAccuracyBonus} per axis (end of game)</strong>
+              </li>
+            )}
             <li>
               <span>Pool size</span>
               <strong>{state.settings.poolSize}</strong>

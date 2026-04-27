@@ -83,7 +83,7 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
             <span>
               Languages{" "}
               <span className="muted small">
-                ({settings.languages.length} selected — pool draws roughly
+                ({settings.languages.length} selected, pool draws roughly
                 equally from each)
               </span>
             </span>
@@ -136,12 +136,32 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
             </span>
           </label>
 
-          <ProfileAxesEditor
-            axes={settings.profileAxes}
-            onChange={(profileAxes) =>
-              setSettings((s) => ({ ...s, profileAxes }))
+          <ToggleField
+            label="Polyglot cluster bonus"
+            value={settings.polyglotBonus}
+            onChange={(v) => setSettings((s) => ({ ...s, polyglotBonus: v }))}
+            description={
+              settings.languages.length < 2
+                ? "Adds an extra reward, on top of the scoring above, when you guess every intended word and the matched picks span multiple languages. Group the matched words by language and award T(slice) for each 'horizontal slice' (one cluster of distinct-language words). Example: 3 EN + 2 FR + 1 ES → T(3)+T(2)+T(1) = 6+3+1 = +10. Symmetric to both sides. Inactive in single-language games, enable a second language above to use it."
+                : "Adds an extra reward, on top of the scoring above, when you guess every intended word and the matched picks span multiple languages. Group the matched words by language and award T(slice) for each 'horizontal slice' (one cluster of distinct-language words). Example: 3 EN + 2 FR + 1 ES → T(3)+T(2)+T(1) = 6+3+1 = +10. Symmetric to both sides. Rewards finding tight clusters that span the most languages possible."
             }
           />
+
+          <ToggleField
+            label="Profile play"
+            value={settings.publicFigures}
+            onChange={(v) => setSettings((s) => ({ ...s, publicFigures: v }))}
+            description="When ON, every guess on a player's axes feeds a cumulative average, the 'public figure' shown in the Nations panel during play and at reveal. At game end, each player gets a bonus per axis where their rounded public figure matches the truth (rewards being legible). When OFF, axes still score +1 per matching guess each round, but no cumulative averages are tracked and no end-of-game bonus is awarded."
+          />
+
+          {settings.publicFigures && (
+            <ProfileAxesEditor
+              axes={settings.profileAxes}
+              onChange={(profileAxes) =>
+                setSettings((s) => ({ ...s, profileAxes }))
+              }
+            />
+          )}
 
           <button
             type="button"
@@ -199,14 +219,16 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
                   setSettings((s) => ({ ...s, pointsPerPlayer: v }))
                 }
               />
-              <NumberField
-                label="Public-accuracy bonus / axis"
-                value={settings.publicAccuracyBonus}
-                bounds={SETTINGS_BOUNDS.publicAccuracyBonus}
-                onChange={(v) =>
-                  setSettings((s) => ({ ...s, publicAccuracyBonus: v }))
-                }
-              />
+              {settings.publicFigures && (
+                <NumberField
+                  label="Public-accuracy bonus / axis"
+                  value={settings.publicAccuracyBonus}
+                  bounds={SETTINGS_BOUNDS.publicAccuracyBonus}
+                  onChange={(v) =>
+                    setSettings((s) => ({ ...s, publicAccuracyBonus: v }))
+                  }
+                />
+              )}
             </div>
           )}
 
@@ -246,6 +268,41 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
         {error && <p className="error">{error}</p>}
       </main>
     </div>
+  );
+}
+
+function ToggleField({
+  label,
+  value,
+  onChange,
+  description,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  description: string;
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <div className="seg">
+        <button
+          type="button"
+          className={value ? "seg-on" : ""}
+          onClick={() => onChange(true)}
+        >
+          On
+        </button>
+        <button
+          type="button"
+          className={!value ? "seg-on" : ""}
+          onClick={() => onChange(false)}
+        >
+          Off
+        </button>
+      </div>
+      <span className="muted small">{description}</span>
+    </label>
   );
 }
 
