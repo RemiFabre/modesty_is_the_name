@@ -99,9 +99,13 @@ async function main() {
         "modesty bot-cli — one-shot commands for an LLM agent",
         "",
         "Common flags: --url URL --room CODE",
-        "Most commands need --token TOKEN (returned by `join`).",
+        "Most commands need --token TOKEN (returned by `join` or `create`).",
         "",
         "Commands:",
+        "  create --url URL --name NAME [--language en] [--scoring symmetric] \\",
+        "         [--points-per-player 10] [--axes-json '[{\"left\":\"...\",\"right\":\"...\"}, ...]']",
+        "         → prints {playerId, sessionToken, roomCode, state}.",
+        "         The creator is the host.",
         "  join   --url URL --room CODE --name NAME",
         "         → prints {playerId, sessionToken, roomCode, state}",
         "  status --url URL --room CODE --token TOKEN",
@@ -119,6 +123,51 @@ async function main() {
       ].join("\n"),
     );
     process.exit(0);
+  }
+
+  if (cmd === "create") {
+    if (!args.name) die("--name required");
+    const sock = await connect();
+    let lastState = null;
+    sock.on("state", (s) => {
+      lastState = s;
+    });
+    const settings = {};
+    if (args.language) settings.language = args.language;
+    if (args.scoring) settings.scoring = args.scoring;
+    if (args["points-per-player"]) {
+      settings.pointsPerPlayer = parseInt(args["points-per-player"], 10);
+    }
+    if (args["pool-size"]) {
+      settings.poolSize = parseInt(args["pool-size"], 10);
+    }
+    if (args["axes-json"]) {
+      try {
+        settings.profileAxes = JSON.parse(args["axes-json"]);
+      } catch (e) {
+        sock.disconnect();
+        die({ error: "invalid --axes-json: " + e.message });
+      }
+    }
+    const ack = await emit(sock, "room:create", {
+      hostName: args.name,
+      settings,
+    });
+    if (!ack.ok) {
+      sock.disconnect();
+      die({ error: ack.error });
+    }
+    await new Promise((r) => setTimeout(r, 250));
+    console.log(
+      JSON.stringify({
+        playerId: ack.playerId,
+        sessionToken: ack.sessionToken,
+        roomCode: ack.roomCode,
+        state: lastState,
+      }),
+    );
+    sock.disconnect();
+    return;
   }
 
   if (cmd === "join") {

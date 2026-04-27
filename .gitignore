@@ -5,3 +5,5 @@ dist/
 .env.local
 *.log
 .vite/
+# Autonomous-play artifacts (game logs, ELO state, agent reviews).
+data/

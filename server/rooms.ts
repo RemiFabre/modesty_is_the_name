@@ -25,6 +25,7 @@ import {
   type RoomSettings,
   type ScoringMode,
 } from "../shared/types.ts";
+import { persistGame, snapshotRound, type RoundLog } from "./persistence.ts";
 import { drawPool } from "./words.ts";
 
 // Avoid characters that can be confused with each other (0/O, 1/I/L).
@@ -123,6 +124,8 @@ export interface Room {
   profileGuessSums: Map<string, number[]>;
   /** Total number of guesses ever submitted for each target. */
   profileGuessSamples: Map<string, number>;
+  /** Snapshot of every resolved round, in order. Used for game-log persistence. */
+  history: RoundLog[];
 }
 
 const rooms = new Map<string, Room>();
@@ -264,6 +267,7 @@ export function createRoom(
     createdAt: Date.now(),
     profileGuessSums: new Map(),
     profileGuessSamples: new Map(),
+    history: [],
   };
   rooms.set(code, room);
   return { room, player: host };
@@ -611,6 +615,8 @@ function tryResolveRound(room: Room): void {
       }
     }
   }
+  // Snapshot the resolved round before any further mutation.
+  room.history.push(snapshotRound(round));
   // Append clue words to nations.
   for (const p of room.players) {
     const c = round.clues.get(p.id);
@@ -645,6 +651,8 @@ function tryResolveRound(room: Room): void {
     }
     room.phase = "ended";
     room.winnerId = winner.id;
+    // Persist the full game log + ELO update. Best-effort; failures are logged but don't break the game.
+    persistGame(room);
   } else {
     room.phase = "reveal";
   }

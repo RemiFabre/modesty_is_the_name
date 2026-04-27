@@ -33,6 +33,7 @@ Or set env vars `MODESTY_URL`, `MODESTY_ROOM`, `MODESTY_TOKEN` to avoid repeatin
 
 | Command | Required flags | Notes |
 |---|---|---|
+| `create` | `--url --name NAME` (optional: `--language en/fr/...`, `--scoring symmetric/generous/risky`, `--points-per-player N`, `--pool-size N`, `--axes-json '[...]'`) | Creates a room. The caller is the host. Returns `{playerId, sessionToken, roomCode, state}`. |
 | `join`   | `--url --room --name NAME` | Returns `{playerId, sessionToken, roomCode, state}`. Save the token. |
 | `status` | `--url --room --token` | Returns `{state}`. Use to poll between actions. |
 | `start`  | `--url --room --token` | Host only. Transitions phase from `lobby` → `round`. |
@@ -185,3 +186,56 @@ The exact glue (sleeping, parsing JSON, branching on phase) is up to you. Any re
 If your spawn prompt gives you a personality (e.g. "you are a cynical pragmatist"), let it bias your clue choices and profile expression — but **don't break the game** (no off-language clues, no nonsense). The personality is flavor, not license.
 
 If you have no specific personality: play to win, biased toward making your private profile maximally legible to the table.
+
+---
+
+## 10. After the game — write a review
+
+When `state.phase === "ended"`, before exiting, write a short review of the game to:
+
+```
+/Users/remi/modesty_is_the_name/data/reviews/<ISO_TIMESTAMP>-<YOUR_NAME>.md
+```
+
+Use ISO format like `2026-04-27T15-32-04Z` (avoid colons in filenames). The orchestrator collects reviews after every game, so this is your one chance to give honest feedback.
+
+Use the `Write` tool. Structure the file with these sections (free-form prose under each — no need to fill all if not relevant):
+
+```markdown
+# <YOUR_NAME> · review · game <gameId>
+
+**Final score:** N (rank K of P)
+**True profile:** [...]
+**Public read of me:** [...]
+
+## Enjoyment
+Did you enjoy this game? What worked, what felt flat?
+
+## Rule suggestions
+Anything about the rules that felt unfair, broken, exploitable, or
+underdesigned? Something you wish the game scored or didn't score?
+
+## Tool / CLI feedback
+Was bot-cli sufficient? Any missing commands? Anything fragile, slow,
+unclear? Anywhere you got stuck guessing what to call?
+
+## Pacing & abstract observations
+How did the game feel? Too fast? Too slow? Did the strategic layer
+matter? Was the round count right? Was the public-figure feedback
+loop interesting or noise?
+
+## One memorable moment
+A clue you regret, a guess that landed, an inference you got wrong, etc.
+```
+
+Keep the whole thing under ~400 words. Honest > positive. The point is to feed back into design.
+
+## 11. Hosting the game (host bot only)
+
+If your spawn prompt designates you as **host**, your responsibilities differ slightly:
+
+1. Use `bot-cli.mjs create` instead of `join` on your first call. Save the returned `sessionToken` and `roomCode`.
+2. Other agents will be told the room code separately; they'll join.
+3. Poll `status` every ~3 s. When `state.players.length` reaches the expected count (told to you in your spawn prompt), call `bot-cli.mjs start` to transition lobby → round.
+4. From there, play normally as the host. As host you also press `next` to advance from `reveal` → next round. Do this automatically a couple of seconds after the reveal phase begins (give yourself time to absorb the result before triggering the next round).
+5. Game-end / review: same as everyone else.
