@@ -526,7 +526,9 @@ function carryPoolForward(
       poolLangs: langs,
     };
   }
-  const exclude = new Set(survivors);
+  // Exclude both survivors (already in pool) AND targeted words (just removed)
+  // — otherwise drawPool can resurrect a word that was just clued.
+  const exclude = new Set([...survivors, ...targeted]);
   const fresh = drawPool(room.settings.languages, need, exclude);
   for (const w of fresh.words) langs[w] = fresh.langs[w];
   return { pool: [...survivors, ...fresh.words], poolLangs: langs };
