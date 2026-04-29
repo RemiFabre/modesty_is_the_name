@@ -1,413 +1,323 @@
-# Plan: stabilize, simplify, then redesign the meta-layer
+# Plan: stabilize, simplify, then add side-quest cards
 
-This document is the single source of truth for the next mission. Any agent
-(human or otherwise) should be able to read it cold and pick up where the
-last one stopped. Tasks are sequenced; do them in order. Each task says
-what's done, how to verify, and what to commit.
+Hand-off doc for the next agent. Read this and the codebase, ignore older
+context. Three phases, in order. Don't skip ahead.
 
-The current code on `main` works as a word-association game with a
-profile-axis meta-layer. After playtests with friends, we're throwing the
-profile mechanic out. The new direction is **secret side-quest cards**
-(token paths, letter/sound constraints, etc.). Before any of that, we fix
-two bugs that make the current build unsafe to play.
+## Recap (read once, then move on)
 
-## Why each phase exists
+`Modesty is the Name` is a browser-based simultaneous word-association
+game played on phones, ~3-8 friends per game. Stack: Node + Socket.IO +
+Express server (port 3000 default, 3010 for testing); Vite + React +
+TypeScript client; shared types in `shared/`. The whole codebase is
+under ~3k LoC.
 
-1. **Bug fixes first.** Two real bugs from the last playtest. Fix them
-   before touching anything else so we know the simplification didn't
-   introduce them.
-2. **Strip the profile mechanic.** Friends decided the profile-clueing
-   intellectual effort overlaps too much with word-clueing — it doesn't add
-   a distinct second layer. Remove it cleanly: settings, types, server
-   logic, every UI surface, persistence schema, agent docs. No half-removed
-   skeletons.
-3. **Side-quest cards (new mechanic).** Hidden goal cards that bias each
-   player's strategy without overlapping the word-association loop.
-   Two flavors: spatial token-pattern goals, and rule-based vow goals.
+Up until now there was a "profile axis" meta-layer (each player got a
+hidden 1..5 vector on N axes; clues were supposed to express it,
+opponents guessed it, end-of-game accuracy bonus). After playtests with
+friends, we're removing it: the intellectual effort to express a profile
+through clue choice overlaps too much with finding a clean word cluster,
+so it doesn't add a real second layer. We're keeping everything else
+(symmetric/generous/precision scoring modes, originality bonus, polyglot
+cluster bonus, pool persistence, ELO, animal labels, time bank,
+multi-language pools).
 
-## Phase 0: read this and the codebase
+The new direction (phase 3): **secret goal cards** that bias each
+player's strategy *orthogonally* to the cluster-finding loop — token-path
+cards (spatial) and constraint cards (rule-based, free-form text).
 
-Before doing anything: skim `RULES.md`, `AGENTS.md`, `shared/types.ts`,
-`server/rooms.ts`, `server/persistence.ts`, `server/words.ts`, every
-component in `client/src/components/`, and `bot-cli.mjs`. The whole
-codebase is small (under ~3k LoC). Don't skip — phase 2 touches every one
-of those files.
+## Phase 1 — bug fixes
 
-Run `git log --oneline -20` to see recent context. Look at the most recent
-commits especially: originality bonus, profile-off changes, em-dash purge.
+Two real bugs from the playtest. Fix first so phase 2 doesn't introduce
+or mask them. Both are small.
 
-## Phase 1: bug fixes (no behavior changes beyond fixing the bugs)
+### Bug 1: round resolves while slow players are still composing
 
-### Bug 1: round resolves while some players are still composing their clue
+**Symptom.** 4-player game, two players were still picking words for
+their clue. The other two had submitted clues, seen each other's clues,
+and submitted guesses for each other. Round resolved — and advanced —
+without the slow players ever submitting. Time banks were all deep
+negative; that's display-only, not the trigger.
 
-**Symptom (from the playtest):** in a 4-player game, two players were
-mid-thought on the clue prompt. The other two had submitted their clues
-quickly, started seeing each other's clues, and submitted their guesses
-for each other. The round then resolved — and advanced to the next round —
-without the slow players ever getting to submit. The timer banks were all
-deep negative; nothing about the timer should have triggered any
-auto-action because the time bank is display-only.
+**Root cause.** In `server/rooms.ts` `tryResolveRound` (~line 710): the
+check waits only for everyone who *submitted a clue* to have guessed
+every *other clue-submitter*. Non-submitters are ignored. So fast
+players can finish a "round" between themselves and freeze slow players
+out.
 
-**Root cause (read from `server/rooms.ts` lines 710–722, function
-`tryResolveRound`):**
+**Fix.** Add this guard at the top of `tryResolveRound`, after the
+existing `submitters.length < 2` check:
 
 ```ts
-const submitters = Array.from(round.clues.keys());
-if (submitters.length < 2) return;
-for (const guesserId of submitters) {
-  const inner = round.guesses.get(guesserId) ?? new Map();
-  for (const targetId of submitters) {
-    if (targetId === guesserId) continue;
-    if (!inner.has(targetId)) return; // missing guess; not yet
-  }
-}
-// → resolve
-```
-
-The check waits for every clue-submitter to have guessed every *other
-clue-submitter*. It does **not** wait for non-submitters. So if A and B
-submit fast and guess each other, the round resolves, scoring only A and B
-and freezing C and D out of that round entirely. RULES.md technically
-permits this ("when every player who submitted a clue has submitted their
-guesses for every other clue-giver, the round resolves automatically"),
-but for couch play it feels like a bug. We need to fix the rule.
-
-**Fix:** require every *connected* player to have submitted a clue before
-the round resolves.
-
-```ts
-// at the top of tryResolveRound, after the existing `submitters.length < 2` guard:
-const connectedPlayers = room.players.filter((p) => p.socketId !== null);
-for (const p of connectedPlayers) {
+const connected = room.players.filter((p) => p.socketId !== null);
+for (const p of connected) {
   if (!round.clues.has(p.id)) return; // someone connected hasn't clued yet
 }
 ```
 
-If a player disconnects mid-round, this check no longer waits for them —
-that's the right behavior (otherwise the round stalls forever when one
-person rage-quits). Disconnects are explicit (socket gone, `player.socketId
-=== null`).
+Disconnected players don't block resolution (so a rage-quit doesn't
+stall the room forever). All-AFK still stalls, which is fine — the host
+can just start a new game.
 
-If all players are AFK and never submit, the round stalls. That's correct
-for friends-around-the-table mode — the host can `start` a new game if
-they really want to abort.
+**Verify.** Two browser tabs, same room. Tab A submits a clue. Tab B
+doesn't. Confirm phase stays `"round"` indefinitely. Submit B's clue,
+both submit guesses, round resolves.
 
-**Verify:**
-1. Manually: open two browser tabs as two players in the same room. Have
-   one submit a clue, the other not. Confirm the round does NOT resolve
-   even after the first player has done everything they can do (which in
-   this case is just submit their own clue — they can't guess for someone
-   who hasn't clued). Then have the second player submit. Confirm guesses
-   resolve only after both have done everything.
-2. Add a unit test for `tryResolveRound` if the test infra exists; if not,
-   skip — manual verification is sufficient for now.
+**Commit.** `fix: round resolution waits for all connected players to clue`
 
-**Commit:** `fix: round resolution waits for all connected players to clue`
+### Bug 2: clued + correctly-guessed words still appear in next round's pool
 
-### Bug 2: clued + correctly-guessed words remain in the pool
+**Symptom.** Words that were definitely in someone's intended set and
+definitely guessed correctly still show up in the next round's pool.
 
-**Symptom:** after a round, words that were definitely in someone's
-intended set and definitely guessed correctly still appear in the next
-round's pool.
+**Investigate before patching.** `carryPoolForward` (~line 508 in
+`server/rooms.ts`) looks correct on inspection: it builds a `targeted`
+set from every clue's `intended`, filters out targeted words, refills.
+Don't trust the read — instrument and reproduce.
 
-**Code under suspicion:** `carryPoolForward` in `server/rooms.ts` lines
-508–533. On inspection it looks correct: it builds a `targeted` set from
-every clue's `intended` array, filters out targeted words from the prev
-pool, and refills with fresh draws.
+1. Add `console.log("[pool] targeted=", [...targeted], "survivors=", survivors)` in `carryPoolForward`.
+2. Run dev server, two browser tabs. Play 2-3 rounds where you clue
+   specific words. Compare server logs against the client display.
+3. Three possibilities, each with a different fix:
+   - **Server `targeted` is correct, client display is wrong** → bug is
+     downstream of `carryPoolForward`, in `viewFor` or state broadcast.
+     Trace `state.round.pool` from server through socket.
+   - **Server `targeted` is missing words** → something mutates
+     `room.round.clues` between resolve and `nextRound`. Find what.
+   - **Both correct** → maybe a client cache / stale local-state issue.
+     Reload the tab and recheck.
+4. Fix the actual cause. Remove the log line.
 
-**Most likely actual cause** (untested hypothesis, verify before fixing):
+**Verify.** Play a few rounds, intentionally cluing specific words.
+After every round, neither tab should show any word that was in any
+cluer's intended set that round.
 
-- The previous round's `room.round.clues` may have been mutated or
-  partially overwritten somewhere between the resolution snapshot
-  (line 780) and the call to `nextRound` (line 856). The resolution path
-  pushes a deep copy via `snapshotRound`, but `room.round.clues` itself is
-  the live Map. If anything in the reveal path resets it, `carryPoolForward`
-  sees fewer intended words than it should.
-- Or: a client-side bug. Maybe the UI carries stale state across rounds
-  and the server's pool is correct. To rule this out, add a server log
-  line in `carryPoolForward` that prints `targeted` and `survivors`, then
-  reproduce the bug and compare with the client display.
+**Commit.** Whatever the actual fix is. Write the message after you
+find the cause.
 
-**Fix steps:**
-1. Add a temporary `console.log("[pool] targeted:", [...targeted], "survivors:", survivors)` in `carryPoolForward`.
-2. Reproduce the bug (run two browser tabs, play a couple of rounds where
-   you clue specific words, watch the server stdout).
-3. If the server log shows the right `targeted` set but the client still
-   displays old words, the bug is in `viewFor` / state broadcasting — the
-   pool sent to the client is wrong somewhere downstream. Trace from
-   `viewFor` (line 878+) through `state.round.pool`.
-4. If the server log shows missing words from `targeted`, the bug is in
-   the resolution path (something mutating `clues` between snapshot and
-   carry). Find what.
-5. Fix the actual root cause, remove the log line.
+## Phase 2 — strip the profile mechanic
 
-**Verify:** play 2–3 rounds in two browser tabs, intentionally clueing
-specific words. After each round, confirm in both tabs that the pool no
-longer contains any word that was in any cluer's intended set this round.
+Decision is final: profile axes, public figures, accuracy bonus, binary
+vs gradient mode, the "Nations panel" axis bars, the per-axis hits in
+reveal — all of it gone. Not toggled off, not deprecated. Removed.
 
-**Commit:** `fix: pool carry-forward removes all targeted words` (or
-whatever the actual root cause is — write the commit message after you
-find it).
+### What counts as "the profile mechanic"
 
-## Phase 2: strip the profile mechanic
+Settings, types, and constants in `shared/types.ts`:
+`profileAxes`, `profileMode`, `publicFigures`, `publicAccuracyBonus`,
+`PROFILE_AXIS_*`, `PROFILE_BINARY_LOW/HIGH`, `PROFILE_AXES_MIN/MAX`,
+`AXIS_LABEL_MAX_LEN`, `PROFILE_PRESETS`, `DEFAULT_PROFILE_AXES`,
+`ProfilePreset`, `ProfileMode`, `AxisPair`, `ProfileFeedback`,
+`ProfileAccuracy`, `PublicNation`. `PublicMe.profile` and
+`PublicMe.profileGuesses` go too. `PublicState.trueProfiles` and
+`PublicState.accuracy` go.
 
-The decision: the profile-axis layer is gone. Not toggled off, not
-deprecated, not behind a feature flag — physically removed from the code.
+Server (`server/rooms.ts`): `Player.profile`,
+`Player.profileScoreAsGuesser/Target`, `Player.accuracyBonus`,
+`Player.hitsThisRound`, `Round.profileGuesses`, `Room.profileGuessSums`,
+`Room.profileGuessSamples`, `randomProfile`, `validateAxisGuess`,
+`cleanProfileAxes`, `applyPublicAccuracyBonus`, the profile section of
+`tryResolveRound`. `submitGuess` no longer takes axes.
 
-### What "profile mechanic" includes
+`server/persistence.ts`: drop `PlayerLog.trueProfile`, `publicAxes`,
+`axisMatches`; drop `RoundLog.profileGuesses`; drop the
+`profileGuesser/Target/accuracyBonus` keys from `PlayerLog.breakdown`.
+Bump `version` to `2`. Old v1 logs on disk stay readable; we just don't
+generate v1 anymore.
 
-- `profileAxes`, `profileMode`, `publicFigures`, `publicAccuracyBonus` in
-  settings, plus their `binary`/`gradient` mode logic.
-- `Player.profile`, `Player.profileScoreAsGuesser`, `Player.profileScoreAsTarget`,
-  `Player.accuracyBonus`, `Player.hitsThisRound`.
-- `Round.profileGuesses`, `Room.profileGuessSums`, `Room.profileGuessSamples`.
-- `PROFILE_AXIS_*`, `PROFILE_BINARY_LOW/HIGH`, `PROFILE_AXES_MIN/MAX`,
-  `AXIS_LABEL_MAX_LEN`, `PROFILE_PRESETS`, `DEFAULT_PROFILE_AXES`,
-  `ProfilePreset`, `ProfileMode`, `AxisPair`.
-- `randomProfile()`, `validateAxisGuess()`, `applyPublicAccuracyBonus()`,
-  `cleanProfileAxes()`.
-- `PublicMe.profile`, `PublicMe.profileGuesses`, `PublicNation`,
-  `ProfileFeedback`, `ProfileAccuracy`, `state.trueProfiles`,
-  `state.accuracy`, `state.profileFeedback`.
-- `bot-cli` flags: `--profile-mode`, `--axes-json`, `--public-figures`,
-  `--accuracy-bonus`. The `--originality-bonus` flag and the polyglot
-  flag stay, those are unrelated.
-- Client components: `Nations.tsx` axis bars, `Reveal.tsx` profile
-  results, `Round.tsx` axes block + `AxisGuess` component, `Ended.tsx`
-  profile-readout + `AxisRow` + breakdown rows for profile, `Lobby.tsx`
-  profile-axes display, `Home.tsx` `ToggleField` for profile play +
-  `ProfileAxesEditor`.
-- CSS: `.axis*`, `.nation-axes`, `.profile-result*`, `.profile-readout`,
-  `.axis-binary*`. Dead.
-- Persistence schema: `PlayerLog.trueProfile`, `PlayerLog.publicAxes`,
-  `PlayerLog.axisMatches`, `RoundLog.profileGuesses`,
-  `PlayerLog.breakdown.profileGuesser/profileTarget/accuracyBonus`. The
-  saved JSON files will get a smaller schema. Old logs become read-only.
-- Docs: every mention in `RULES.md`, `AGENTS.md`, the originality
-  RULES.md section that talks about profile, the `g1-*.md` review files
-  (leave those alone — they're playtest history).
+`server/index.ts`: update the `guess:submit` handler to drop the `axes`
+parameter.
 
-### Sequence
+Client: every component touches profile somewhere.
+- `Round.tsx` — `AxisGuess` component, the axes block in `GuessAction`,
+  the profile-tip in the clue prompt.
+- `Nations.tsx` — `AxisReading` component, `nation-axes` block. Whole
+  panel collapses to clue history; consider renaming the file/component
+  to `ClueHistory`.
+- `Reveal.tsx` — `ProfileResults` component.
+- `Ended.tsx` — `AxisRow`, `profile-readout`, the four profile
+  `BreakdownRow`s, the publicAccuracyBonus row.
+- `Lobby.tsx` — drop the "Profile play", "Profile axes",
+  "Public-accuracy bonus" rows. Keep "Polyglot cluster bonus".
+- `Home.tsx` — drop the Profile-play `ToggleField`, the
+  `ProfileAxesEditor` and its embedded `NumberField` for accuracy bonus.
+  Keep the Polyglot and Originality `ToggleField`s.
 
-Do these in order. Each commit is small and reviewable. After each commit
-run `npx tsc --noEmit` and the dev server (`PORT=3010 npx tsx server/index.ts`)
-to confirm nothing broke.
+CSS: delete `.axis*`, `.nation-axes`, `.profile-result*`,
+`.profile-readout`, `.axis-binary*` rules.
 
-1. **`shared/types.ts`**: rip out the profile fields from `RoomSettings`,
-   delete the profile-related types and constants, update
-   `DEFAULT_SETTINGS`. Update `PublicState`/`PublicMe`/`PublicRound` to
-   drop the profile fields. `state.profileFeedback`, `state.trueProfiles`,
-   `state.accuracy` removed.
-2. **`server/rooms.ts`**: delete profile-handling code. Simplify
-   `tryResolveRound` to only do word scoring + originality bonus +
-   polyglot bonus. Delete `applyPublicAccuracyBonus`, `randomProfile`,
-   `validateAxisGuess`, `cleanProfileAxes`. Remove `profileGuesses` from
-   `Round`, `profileGuessSums`/`Samples` from `Room`. Remove profile
-   fields from `Player`. `submitGuess` no longer takes axes. Update the
-   room-create / settings paths to not initialize profile state.
-3. **`server/persistence.ts`**: drop profile-related fields from
-   `RoundLog` and `PlayerLog`. Bump `version` to `2`. Add a comment that
-   v1 logs (with profile data) still exist on disk and the analyzer can
-   read both.
-4. **`server/index.ts`**: update the socket handlers to match the new
-   `submitGuess` signature.
-5. **`client/src/components/Round.tsx`**: delete `AxisGuess`, the axes
-   block in `GuessAction`, the profile-tip in `InstructionPrompt`, the
-   `state.me.profile` display.
-6. **`client/src/components/Nations.tsx`**: delete `AxisReading`. The
-   "Nations panel" becomes purely a clue-history view. Consider renaming
-   it to "Clue history" — it's no longer a "nation" of any kind.
-7. **`client/src/components/Reveal.tsx`**: delete `ProfileResults`.
-8. **`client/src/components/Ended.tsx`**: delete `AxisRow`, the
-   `profile-readout` div, the four profile-related `BreakdownRow`s. The
-   end screen becomes word-only.
-9. **`client/src/components/Lobby.tsx`**: drop the "Polyglot cluster
-   bonus" / "Profile play" / "Profile axes" / "Public-accuracy bonus"
-   list items. Keep the polyglot toggle's display since polyglot stays.
-10. **`client/src/pages/Home.tsx`**: drop the Profile play `ToggleField`,
-    the `ProfileAxesEditor` invocation, the helper
-    `ProfileAxesEditor`/`NumberField` for accuracy bonus. Keep the
-    Polyglot and Originality toggles.
-11. **`client/src/styles.css`**: delete `.axis*`, `.nation-axes`,
-    `.profile-result*`, `.profile-readout`, `.axis-binary*` rules. Some
-    of these have several CSS blocks — search for each prefix.
-12. **`bot-cli.mjs`**: delete `--profile-mode`, `--axes-json`,
-    `--public-figures`, `--accuracy-bonus` flags + their parsing.
-    Update `help`. Keep `--polyglot-bonus`, `--originality-bonus`.
-13. **`AGENTS.md`**: rewrite section 5 (currently "Guessing for an
-    opponent" with profile guidance). Profile-mode discussion goes away.
-    Update review template (drop "Profile axes" / "Profile-mode
-    feedback").
-14. **`RULES.md`**: rewrite the entire profile/Nations/end-of-game
-    sections. The game becomes: pool → clue → guess → score → repeat.
-    Add a placeholder line `## Side-quest cards (coming next)` so the
-    next phase has somewhere to land.
-15. **One commit per file group** (1–4 server-side; 5–11 client/UI;
-    12–14 docs). The commit message format is a short imperative
-    sentence: `remove profile-axis types from shared/types`,
-    `remove profile scoring from server/rooms`, etc.
+`bot-cli.mjs`: drop `--profile-mode`, `--axes-json`, `--public-figures`,
+`--accuracy-bonus`. Keep `--polyglot-bonus`, `--originality-bonus`.
+Update the `help` block accordingly.
+
+`AGENTS.md`: section 5 (currently profile-guess guidance) becomes much
+shorter. Drop "Profile axes" and "Profile-mode feedback" from the
+review template.
+
+`RULES.md`: remove the profile sections. Add a single placeholder
+`## Side-quest cards (coming next)` so phase 3 has somewhere to land.
+
+### Sequencing
+
+Do small commits. After each one: `npx tsc --noEmit` clean, server boots.
+
+1. `shared/types.ts` — types, settings, defaults.
+2. `server/rooms.ts` — engine logic.
+3. `server/persistence.ts` — schema bump.
+4. `server/index.ts` — socket signature update.
+5. `client/src/components/Round.tsx`
+6. `client/src/components/Nations.tsx` (rename to `ClueHistory.tsx` if you want)
+7. `client/src/components/Reveal.tsx`
+8. `client/src/components/Ended.tsx`
+9. `client/src/components/Lobby.tsx`
+10. `client/src/pages/Home.tsx`
+11. `client/src/styles.css` — purge dead rules.
+12. `bot-cli.mjs`
+13. `AGENTS.md`
+14. `RULES.md`
 
 ### Verification
 
-After all of phase 2 is committed:
 - `npx tsc --noEmit` clean.
-- Server starts on 3010, lobby renders, two browser tabs can join, host
-  can start, a clue can be submitted, a guess can be submitted, scores
-  appear, round advances, game ends. No JS errors in the browser console
-  (open DevTools).
-- Bot-cli still drives a game end-to-end. Use a 2-player run between two
-  shells:
-  ```
-  node bot-cli.mjs create --url http://localhost:3010 --name Host --pool-size 15 --points-per-player 10 --fields roomCode,sessionToken
-  # then in another shell:
-  node bot-cli.mjs join --url http://localhost:3010 --room <CODE> --name Friend
-  # play a round each, observe end.
-  ```
-- ELO file (`data/elo.json`) survives the schema bump. If old games can
-  no longer be reloaded, that's fine — they're history, not state.
+- Server boots on port 3010.
+- Two-browser-tab test: lobby → start → clue → guess → reveal → next →
+  end. No browser-console errors.
+- Bot-cli end-to-end: 2-player run between two terminals. Game ends,
+  winner declared, log persisted, ELO updated.
 
 ### What stays after phase 2
 
-- Word pool, clue submission, guess submission, scoring (symmetric /
-  generous / precision).
-- Originality bonus (per-word uniqueness weight).
-- Polyglot cluster bonus.
-- Pool persistence (carry-forward of un-targeted words, fixed in phase 1).
-- Animal labels for opponents during a round.
-- ELO across games.
-- Time bank (display only).
-- Per-language word lists in `words/`.
-- The 9-game tournament tooling and `data/overnight/STATUS.md` history
-  (purely for archival reference).
+Word pool with persistence, clue + guess submission, scoring (symmetric
+/ generous / precision), originality bonus, polyglot bonus, pool draws
+across multiple languages, animal labels for opponents during a round,
+ELO across games, the time bank (display-only), per-language word lists
+in `words/`.
 
-## Phase 3: side-quest cards
+## Phase 3 — side-quest cards
 
-This is the redesign. Don't start until phases 1 + 2 are committed.
+Don't start until phases 1 + 2 are committed. The previous mechanic was
+"clueing should express your profile" — it died because the cognitive
+work overlapped the cluster-finding work. Cards have to live somewhere
+*orthogonal*: spatial layout (grid geometry) or word form (constraints
+on the clue itself), not word meaning.
 
-### Vision
+### Design (locked by user)
 
-Each player privately holds 2 secret goal cards (drawn 3, kept 2) that
-shape their play in a way that *doesn't* overlap with the word-association
-loop. Cards come in two families:
+- **Cards drawn / kept**: configurable per game (settings), default 3
+  drawn / 2 kept, but the host can change. Don't bake the numbers in
+  anywhere; pull from settings.
+- **Private by default.** A future per-game toggle will allow public
+  goals, but public goals need different content from private ones (see
+  next bullet) — for now just build private.
+- **Why public is harder.** Geometric public goals leak word info: if
+  the table knows you're chasing a square, the cluster of cells you're
+  trying to score on becomes a hint to your intended words. So public
+  cards can't be spatial. Public-mode card ideas (for the eventual
+  public toggle, not v1):
+  - Score-shape: "be the highest scorer in any single round",
+    "have a round where every opponent guesses every word of yours",
+    "lose less than X total points to misses across the game".
+  - Behavioral: "submit at least one clue with ≥7 intended words",
+    "your shortest clue is exactly 1 word", "you never repeat a clue
+    word's first letter across the game".
+  - Round-property: "be the only player to fully read a specific
+    opponent in a round", "in some round, your guesses for all
+    opponents are perfect".
+  These don't tell opponents anything about your *intended sets*, only
+  about your behavior. Lower hint leakage. Skip for v1.
+- **Tokens go on cells, not words.** The pool is a stable spatial grid
+  (refactor in 3.1). When the pool refreshes a word, the cell is reused
+  with a new word, but any tokens that were on that cell stay. The
+  tokens form a path on the grid, independent of which words occupy the
+  cells at any moment.
+- **Vow / constraint cards are free-form text, honor system.** No
+  server-side validation of letter constraints, sound constraints, etc.
+  Cards just say what they require; players follow them; the table
+  judges at end-of-game (or just trusts each other, like polyglot's
+  cheating clause). The server scores cards but doesn't verify them
+  beyond "did you click 'I held this card' at end-of-game" (or even
+  simpler: just believe everyone). This keeps card content
+  expressive without locking us into a phonetic database.
 
-- **Spatial / token cards.** When an opponent correctly identifies a word
-  from your intended set, you place a token of your color on that word's
-  cell in the pool. The pool needs a stable spatial layout — a grid, not
-  a flowing list. End-of-game checks the pattern your tokens form against
-  your goal cards. Examples: "tokens form a triangle of any size",
-  "tokens cover at least one corner and the center", "tokens form a
-  straight line of length ≥ 3", "no two of your tokens are adjacent".
-- **Rule / vow cards.** Constraints on your clues themselves, evaluated
-  per round. Examples: "no clue word containing the letter E", "all your
-  clue words must share the same first letter as the round number",
-  "every clue word must be exactly 5 letters", "your clue words are all
-  homophonous with another English word". Score: +N if you held the vow
-  every round, partial credit for almost.
+### Build sequence
 
-Both families are *additive* to the existing word-game scoring. The card
-bonuses fire only at game end. They don't change the round loop's
-mechanics.
+1. **Pool grid layout.** Refactor pool from `string[]` to a spatial
+   structure. Either `string[][]` (grid of strings) or
+   `Cell[]` with `{ row, col, word }`. Pool-size becomes `rows × cols`,
+   exposed as two settings (or one with a smart factoring). Update
+   server, client display, carry-forward logic. Cells are stable across
+   rounds; words slot in/out.
+2. **Token state.** `Player.tokens: { row: number; col: number }[]`.
+   Broadcast in `PublicState`. At round resolve, when a guesser
+   correctly identifies word `w` from cluer `C`'s intended set, append
+   `C`'s token list with the cell coordinates of `w` *that round*.
+   Tokens persist across pool refreshes (they live on cells).
+3. **Goal-card framework.** New folder `cards/`. Each card is a JS
+   module exporting `{ id, name, description, family: "spatial" | "vow",
+   evaluate(ctx) -> number }`. The evaluate function for spatial cards
+   inspects the player's tokens; for vow cards it returns the
+   declared bonus if the player self-reports holding the vow (or
+   we just always credit and trust the table).
+   Default card pool: ~10-15 cards split across families. Mark a
+   difficulty tier (1-3) for balance. Drawing samples across tiers.
+4. **Lobby card draft.** When a game starts (not lobby), the server
+   deals N cards per player from the deck (N = `cardsDrawn` setting).
+   Player picks K (= `cardsKept` setting) in a small modal before the
+   first clue phase begins. The pick is locked once the round starts.
+5. **End-of-game card resolution + reveal.** After the win trigger
+   fires, evaluate every player's chosen cards, sum the bonus, add to
+   their final score. Reveal screen shows each player's chosen cards
+   and whether they hit them.
 
-### Open design questions to settle before building
+### Verification per build step
 
-These need a quick chat with the user, not assumed:
-
-1. **How many cards per player?** Pitch was "draw 3, keep 2". Confirm.
-2. **Public or private?** User leaned private but flagged "maybe public".
-   Private is the harder design (asymmetric info, post-game "ah-ha"
-   reveal). Public is closer to a Codenames-of-Goals — everyone knows
-   what everyone is chasing, opens up blocking. **Recommend** starting
-   private and unlocking public as a per-game toggle.
-3. **How do tokens interact with pool persistence?** When a word is
-   targeted-and-removed, do the tokens on it persist? **Recommend** yes,
-   the spatial layout outlives the words — the underlying pool is a grid
-   of cells, words slot in and out, tokens are on the cell.
-4. **Geometry vocabulary.** What patterns count? "Triangle", "line",
-   "rectangle" need precise grid-coord definitions. Start with the
-   simplest 3 patterns; expand from playtest feedback.
-5. **Vow card precision.** Letter constraints are easy ("no E"). "Sound"
-   constraints (e.g., "no plosives") need a phonetic database — too much
-   for v1. Start with letter-class constraints only.
-6. **Card balance.** Some cards are way easier than others. Without
-   playtests we don't know which. Ship 12–15 cards, mark roughly
-   equal-difficulty in 3 tiers, draw across tiers.
-
-### Build sequence (after design questions settle)
-
-1. **Pool grid layout.** Refactor the pool from `string[]` to a
-   stable spatial structure (`{ row, col, word }[]`, or `string[][]`).
-   Update everything that touches the pool (server, client display,
-   carry-forward). Pool size becomes `rows × cols`.
-2. **Token state.** Add `Player.tokens: { row, col }[]` and broadcast it
-   in `PublicState`. Place tokens at round resolution: when a guesser
-   correctly identifies word w from cluer C's intended set, append to
-   C's token list the cell where w sat in the pool *that round*.
-3. **Goal cards.** Add a `cards/` data folder with one JSON file per
-   card type. Card schema: `{ id, name, description, family: "spatial"
-   | "vow", evaluate: (state) => number }`. The evaluate function lives
-   server-side (cards are JS modules, not pure data, since geometry
-   needs code). At room creation, draw 3 random cards per player; they
-   choose 2 in lobby.
-4. **End-of-game card resolution.** After the win-trigger fires, evaluate
-   each player's chosen cards. Their bonus is the sum. Display in the
-   end screen alongside word scores.
-5. **Lobby UI for card draft.** Player picks 2 of 3 dealt cards. Hidden
-   from other players if private mode.
-6. **Reveal at end-of-game.** Show every player's chosen cards and
-   whether they hit them.
-
-### Why this is "different in shape" from the profile mechanic
-
-The profile mechanic asked players to *embed identity into clue choice*,
-which is the same cognitive act as finding a clean cluster — that's why
-friends called it redundant. Card goals ask for something *orthogonal*:
-either a spatial pattern (which is about pool layout, not clue meaning)
-or a rule constraint (which is about word form, not word meaning). Both
-are decoupled from the cluster-finding loop, so they don't double-tax
-the same brain muscle.
+- After (1): can play a full game with the new grid pool. No regression.
+- After (2): tokens accumulate on cells. Can verify by inspecting state
+  after a round resolves.
+- After (3): a single test card can be loaded, evaluated, and returns
+  a number. Unit test for the evaluator if test infra exists.
+- After (4): two browser tabs, host starts game, both players see card
+  draft modal, both pick, game proceeds normally.
+- After (5): full game ends with card bonuses applied to scores and
+  visible on Ended screen.
 
 ## Working style
 
-- **Commit often** (per the user's standing convention). One commit per
-  bug fix; small commits per profile-removal step. No co-author trailer.
-  Don't push.
-- **Update this file** as you finish each phase. Mark sections done with
-  a brief result note. The next agent reads here first.
-- **If you're stuck on a design call, stop and ask the user.** Don't
-  guess on the open questions in phase 3.
-- **Self-test by running the dev server in two browser tabs.** Most bugs
-  show up in two-player flow; you can't catch them by reading code alone.
-  Don't claim a phase is done until you've manually walked through one
-  full game in the browser.
+- **Commit often.** Per the user's standing convention. No co-author
+  trailer. Don't push.
+- **Update this PLAN.md as you finish phases.** Mark each phase done
+  with a one-line result and the commit SHA range. Helps the next
+  agent.
+- **Don't claim a phase is done without manual browser verification.**
+  Two-tab test, eyes on the screen.
+- **Open design questions go to the user**, not your judgment. The user
+  is opinionated and present.
 
-## Status as of writing
-
-- Codebase on `main`, latest commit: `5a58173 Profile play off skips
-  axes everywhere; binary mode shows two labelled buttons` (or whatever
-  is HEAD when you read this — `git log -1` to confirm).
-- Server *not* running. Originality bonus implemented; G1 tournament
-  data exists in `data/games/1777327540962-ZN4CE.json` and
-  `data/reviews/g1-*.md` for reference but is not load-bearing for this
-  mission.
-- The whole `data/` directory is gitignored; nothing in it is canonical.
-- Phase 1 not started. Phase 2 not started. Phase 3 not started.
-
-## Quick reference: file layout
+## File reference
 
 ```
-shared/types.ts            – all shared types, settings shape
-server/rooms.ts            – the game engine (round resolution lives here)
+shared/types.ts            – shared types + settings shape
+server/rooms.ts            – game engine, round resolution
 server/index.ts            – Socket.IO handlers
-server/persistence.ts      – game-log JSON schema + ELO
+server/persistence.ts      – game-log JSON + ELO persistence
 server/words.ts            – pool drawing
 server/elo.ts              – pairwise FIDE-style ELO
 client/src/pages/Home.tsx  – game-creation form
 client/src/pages/Room.tsx  – router shell, dispatches to phase components
-client/src/components/Lobby.tsx, Round.tsx, Reveal.tsx, Ended.tsx, Nations.tsx, WordPool.tsx
-client/src/styles.css      – all styling, single file
+client/src/components/    – Lobby, Round, Reveal, Ended, Nations, WordPool
+client/src/styles.css      – all CSS, single file
 bot-cli.mjs                – CLI for agents
-host-helper.sh             – background watchdog that calls round:next on reveal
+host-helper.sh             – background watchdog calling round:next
 AGENTS.md                  – agent player guide
-RULES.md                   – game rules (user-facing)
-DESIGN.md                  – older design notes (mostly obsolete; phase 2 will leave it as-is)
+RULES.md                   – user-facing rules
+DESIGN.md                  – older design notes (mostly obsolete; ignore)
 ```
+
+## Status as of writing
+
+- HEAD: `git log -1 --oneline` to confirm.
+- Server not running.
+- `data/` is gitignored; nothing in it is canonical.
+- Phase 1 not started. Phase 2 not started. Phase 3 not started.
+- Last activity: removed an attempt at a 9-game agent tournament that
+  hit the API rate limit. Reviews from the one game that finished are
+  in `data/reviews/g1-*.md` if you ever want flavor; not load-bearing.
