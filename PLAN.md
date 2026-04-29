@@ -312,12 +312,15 @@ RULES.md                   – user-facing rules
 DESIGN.md                  – older design notes (mostly obsolete; ignore)
 ```
 
-## Status as of writing
+## Status
 
-- HEAD: `git log -1 --oneline` to confirm.
-- Server not running.
-- `data/` is gitignored; nothing in it is canonical.
-- Phase 1 not started. Phase 2 not started. Phase 3 not started.
-- Last activity: removed an attempt at a 9-game agent tournament that
-  hit the API rate limit. Reviews from the one game that finished are
-  in `data/reviews/g1-*.md` if you ever want flavor; not load-bearing.
+- **Phase 1: done.** Bug 1 fixed in `f26e475` (round resolution waits for
+  all connected players to clue). Bug 2 fixed in `d629a53`
+  (`carryPoolForward` now excludes both survivors AND targeted words from
+  the fresh draw; reproed with a 2.5% → 0% rate over 2000 trials).
+- **Phase 2: done.** Profile mechanic stripped end-to-end in `468bc30`
+  (server, types, client, bot-cli, dead helper scripts deleted),
+  CSS purge in `cbb691e`, AGENTS.md in `2d5d7ae`, RULES.md in `ead0ad7`.
+  Persistence schema bumped to `version: 2`. End-to-end smoke via
+  bot-cli passes. Browser/phone manual verification deferred to user.
+- **Phase 3: not started.** Side-quest cards.
