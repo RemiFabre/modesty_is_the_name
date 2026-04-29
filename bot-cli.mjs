@@ -133,7 +133,7 @@ async function main() {
         "Commands:",
         "  create --url URL --name NAME [--languages en,fr,es] \\",
         "         [--scoring symmetric|generous|precision] \\",
-        "         [--points-per-player 18] [--pool-size 20] \\",
+        "         [--points-per-player 18] [--pool-rows 4] [--pool-cols 5] \\",
         "         [--polyglot-bonus true] [--originality-bonus true]",
         "         → prints {playerId, sessionToken, roomCode, state}.",
         "         The creator is the host.",
@@ -181,8 +181,11 @@ async function main() {
     if (args["points-per-player"]) {
       settings.pointsPerPlayer = parseInt(args["points-per-player"], 10);
     }
-    if (args["pool-size"]) {
-      settings.poolSize = parseInt(args["pool-size"], 10);
+    if (args["pool-rows"]) {
+      settings.poolRows = parseInt(args["pool-rows"], 10);
+    }
+    if (args["pool-cols"]) {
+      settings.poolCols = parseInt(args["pool-cols"], 10);
     }
     if (args["polyglot-bonus"] !== undefined) {
       settings.polyglotBonus =

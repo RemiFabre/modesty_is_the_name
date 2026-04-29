@@ -112,6 +112,7 @@ function ClueResultCard({
       <div className="reveal-pool">
         <WordPool
           words={round.pool}
+          cols={state.settings.poolCols}
           highlight={intendedSet}
           disabled
         />

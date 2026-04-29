@@ -193,10 +193,16 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
                 }
               />
               <NumberField
-                label="Pool size"
-                value={settings.poolSize}
-                bounds={SETTINGS_BOUNDS.poolSize}
-                onChange={(v) => setSettings((s) => ({ ...s, poolSize: v }))}
+                label="Pool rows"
+                value={settings.poolRows}
+                bounds={SETTINGS_BOUNDS.poolRows}
+                onChange={(v) => setSettings((s) => ({ ...s, poolRows: v }))}
+              />
+              <NumberField
+                label="Pool columns"
+                value={settings.poolCols}
+                bounds={SETTINGS_BOUNDS.poolCols}
+                onChange={(v) => setSettings((s) => ({ ...s, poolCols: v }))}
               />
               <NumberField
                 label="Points per player (target)"

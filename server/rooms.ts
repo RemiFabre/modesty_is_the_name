@@ -399,6 +399,10 @@ export function startGame(room: Room, player: Player): void {
   syncAllBankActivity(room, Date.now());
 }
 
+function poolSize(room: Room): number {
+  return room.settings.poolRows * room.settings.poolCols;
+}
+
 function newRound(
   room: Room,
   number: number,
@@ -408,7 +412,7 @@ function newRound(
   let resolvedPool = pool;
   let resolvedLangs = poolLangs;
   if (!resolvedPool || !resolvedLangs) {
-    const drawn = drawPool(room.settings.languages, room.settings.poolSize);
+    const drawn = drawPool(room.settings.languages, poolSize(room));
     resolvedPool = drawn.words;
     resolvedLangs = drawn.langs;
   }
@@ -424,7 +428,9 @@ function newRound(
   };
 }
 
-/** Compute the next round's pool: keep words that no one targeted, refill the rest with fresh draws. */
+/** Compute the next round's pool, preserving cell indices: each pool[i] is a stable
+ *  spatial cell. Words that were targeted (in any clue's intended set) are replaced
+ *  in-place with fresh draws; survivors keep their slot. */
 function carryPoolForward(
   room: Room,
   prev: Round,
@@ -433,25 +439,24 @@ function carryPoolForward(
   for (const clue of prev.clues.values()) {
     for (const w of clue.intended) targeted.add(w);
   }
-  const survivors = prev.pool.filter((w) => !targeted.has(w));
-  const need = room.settings.poolSize - survivors.length;
+  const need = prev.pool.filter((w) => targeted.has(w)).length;
   // Build the lang map from survivors (preserving prior tags).
   const langs: Record<string, Language> = {};
-  for (const w of survivors) {
-    if (prev.poolLangs[w]) langs[w] = prev.poolLangs[w];
+  for (const w of prev.pool) {
+    if (!targeted.has(w) && prev.poolLangs[w]) langs[w] = prev.poolLangs[w];
   }
-  if (need <= 0) {
-    return {
-      pool: survivors.slice(0, room.settings.poolSize),
-      poolLangs: langs,
-    };
+  if (need === 0) {
+    return { pool: [...prev.pool], poolLangs: langs };
   }
-  // Exclude both survivors (already in pool) AND targeted words (just removed)
-  // — otherwise drawPool can resurrect a word that was just clued.
-  const exclude = new Set([...survivors, ...targeted]);
+  // Exclude every word currently in the pool (survivors AND targeted) so we don't
+  // resurrect a word that was just clued or duplicate one that's still on the board.
+  const exclude = new Set(prev.pool);
   const fresh = drawPool(room.settings.languages, need, exclude);
   for (const w of fresh.words) langs[w] = fresh.langs[w];
-  return { pool: [...survivors, ...fresh.words], poolLangs: langs };
+  // Slot fresh words into the cells whose previous word was targeted.
+  let f = 0;
+  const pool = prev.pool.map((w) => (targeted.has(w) ? fresh.words[f++] : w));
+  return { pool, poolLangs: langs };
 }
 
 export function submitClue(

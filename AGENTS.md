@@ -31,7 +31,7 @@ Or set env vars `MODESTY_URL`, `MODESTY_ROOM`, `MODESTY_TOKEN` to avoid repeatin
 
 | Command | Required flags | Notes |
 |---|---|---|
-| `create` | `--url --name NAME` (optional: `--languages en,fr,es`, `--scoring symmetric/generous/precision`, `--points-per-player N`, `--pool-size N`, `--polyglot-bonus true`, `--originality-bonus true`) | Creates a room. The caller is the host. Returns `{playerId, sessionToken, roomCode, state}`. |
+| `create` | `--url --name NAME` (optional: `--languages en,fr,es`, `--scoring symmetric/generous/precision`, `--points-per-player N`, `--pool-rows R --pool-cols C`, `--polyglot-bonus true`, `--originality-bonus true`) | Creates a room. The caller is the host. Returns `{playerId, sessionToken, roomCode, state}`. |
 | `join`   | `--url --room --name NAME` | Returns `{playerId, sessionToken, roomCode, state}`. Save the token. |
 | `status` | `--url --room --token` | Returns `{state}`. Use to poll between actions. |
 | `start`  | `--url --room --token` | Host only. Transitions phase from `lobby` → `round`. |
@@ -167,9 +167,9 @@ Was bot-cli sufficient? Any missing commands? Anything fragile, slow,
 unclear? Anywhere you got stuck guessing what to call?
 
 ## Pool size feedback
-The pool is `state.settings.poolSize` words. Did it feel too large
-(diluted clusters) or too small (forced overlap)? Suggest the
-ideal size for the constraint level we're playing at.
+The pool is a `state.settings.poolRows × state.settings.poolCols` grid.
+Did it feel too large (diluted clusters) or too small (forced overlap)?
+Suggest the ideal grid for the constraint level we're playing at.
 
 ## Polyglot feedback (only if `state.settings.languages.length > 1`)
 The pool drew from multiple languages. Did the polyglot mix

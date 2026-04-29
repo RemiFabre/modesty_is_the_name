@@ -121,6 +121,7 @@ export function Round({ state }: { state: PublicState }) {
         <section className="card pool-card">
           <WordPool
             words={round.pool}
+            cols={state.settings.poolCols}
             selected={selected}
             onToggle={interactive ? toggle : undefined}
             disabled={!interactive}

@@ -83,7 +83,11 @@ export interface RoomSettings {
    *  roughly equally from each. Players may clue in any of them. */
   languages: Language[];
   scoring: ScoringMode;
-  poolSize: number;
+  /** Grid rows. Pool is displayed and addressed as a stable poolRows × poolCols grid;
+   *  the pool array is row-major and a cell's identity is its index, not the word
+   *  that occupies it. Words slot in/out across rounds; cells stay put. */
+  poolRows: number;
+  poolCols: number;
   cluePhaseSeconds: number;
   guessPhaseSeconds: number;
   initialBankSeconds: number;
@@ -110,7 +114,8 @@ export interface RoomSettings {
 export const DEFAULT_SETTINGS: RoomSettings = {
   languages: ["en"],
   scoring: "symmetric",
-  poolSize: 20,
+  poolRows: 4,
+  poolCols: 5,
   cluePhaseSeconds: 120,
   guessPhaseSeconds: 60,
   initialBankSeconds: 180,
@@ -121,7 +126,8 @@ export const DEFAULT_SETTINGS: RoomSettings = {
 };
 
 export const SETTINGS_BOUNDS = {
-  poolSize: { min: 9, max: 40 },
+  poolRows: { min: 3, max: 8 },
+  poolCols: { min: 3, max: 8 },
   cluePhaseSeconds: { min: 5, max: 600 },
   guessPhaseSeconds: { min: 5, max: 300 },
   initialBankSeconds: { min: 5, max: 1800 },

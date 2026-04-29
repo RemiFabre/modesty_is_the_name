@@ -428,13 +428,13 @@ select:focus {
 
 .pool {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 0.4rem;
+  /* grid-template-columns is set inline from poolCols so the spatial layout is
+     identical on every device (cells must line up across players). */
 }
 
 @media (min-width: 520px) {
   .pool {
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
     gap: 0.5rem;
   }
 }

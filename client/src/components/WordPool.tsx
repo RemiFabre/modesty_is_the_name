@@ -1,5 +1,7 @@
 export interface WordPoolProps {
   words: readonly string[];
+  /** Number of columns in the spatial grid. The pool is rendered row-major. */
+  cols: number;
   selected?: ReadonlySet<string>;
   onToggle?: (word: string) => void;
   highlight?: ReadonlySet<string>;
@@ -8,14 +10,19 @@ export interface WordPoolProps {
 
 export function WordPool({
   words,
+  cols,
   selected,
   onToggle,
   highlight,
   disabled,
 }: WordPoolProps) {
   return (
-    <div className="pool" role="list">
-      {words.map((w) => {
+    <div
+      className="pool"
+      role="list"
+      style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
+    >
+      {words.map((w, idx) => {
         const isSel = selected?.has(w) ?? false;
         const isHi = highlight?.has(w) ?? false;
         const interactive = Boolean(onToggle) && !disabled;
@@ -30,7 +37,7 @@ export function WordPool({
           .join(" ");
         return (
           <button
-            key={w}
+            key={idx}
             type="button"
             role="listitem"
             className={className}

@@ -109,8 +109,11 @@ export function Lobby({ state }: { state: PublicState }) {
               </strong>
             </li>
             <li>
-              <span>Pool size</span>
-              <strong>{state.settings.poolSize}</strong>
+              <span>Pool grid</span>
+              <strong>
+                {state.settings.poolRows} × {state.settings.poolCols} ={" "}
+                {state.settings.poolRows * state.settings.poolCols}
+              </strong>
             </li>
             <li>
               <span>Initial bank</span>
