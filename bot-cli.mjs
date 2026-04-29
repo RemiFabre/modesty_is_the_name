@@ -132,10 +132,9 @@ async function main() {
         "",
         "Commands:",
         "  create --url URL --name NAME [--languages en,fr,es] \\",
-        "         [--scoring symmetric|generous|precision] [--profile-mode binary|gradient] \\",
-        "         [--points-per-player 18] [--pool-size 20] [--accuracy-bonus 2] \\",
-        "         [--public-figures false] [--polyglot-bonus true] [--originality-bonus true] \\",
-        "         [--axes-json '[{\"left\":\"...\",\"right\":\"...\"}, ...]']",
+        "         [--scoring symmetric|generous|precision] \\",
+        "         [--points-per-player 18] [--pool-size 20] \\",
+        "         [--polyglot-bonus true] [--originality-bonus true]",
         "         → prints {playerId, sessionToken, roomCode, state}.",
         "         The creator is the host.",
         "  join   --url URL --room CODE --name NAME",
@@ -146,7 +145,7 @@ async function main() {
         "  clue   --url URL --room CODE --token TOKEN \\",
         "         --word WORD --intended w1,w2,w3",
         "  guess  --url URL --room CODE --token TOKEN \\",
-        "         --target PLAYER_ID --picks w1,w2 --axes 1,2,3,4",
+        "         --target PLAYER_ID --picks w1,w2",
         "  next   --url URL --room CODE --token TOKEN          (host only)",
         "",
         "Env vars: MODESTY_URL / MODESTY_ROOM / MODESTY_TOKEN replace the flags.",
@@ -179,19 +178,11 @@ async function main() {
       settings.languages = [args.language];
     }
     if (args.scoring) settings.scoring = args.scoring;
-    if (args["profile-mode"]) settings.profileMode = args["profile-mode"];
     if (args["points-per-player"]) {
       settings.pointsPerPlayer = parseInt(args["points-per-player"], 10);
     }
     if (args["pool-size"]) {
       settings.poolSize = parseInt(args["pool-size"], 10);
-    }
-    if (args["accuracy-bonus"]) {
-      settings.publicAccuracyBonus = parseInt(args["accuracy-bonus"], 10);
-    }
-    if (args["public-figures"] !== undefined) {
-      settings.publicFigures =
-        args["public-figures"] !== "false" && args["public-figures"] !== "0";
     }
     if (args["polyglot-bonus"] !== undefined) {
       settings.polyglotBonus =
@@ -201,14 +192,6 @@ async function main() {
       settings.originalityBonus =
         args["originality-bonus"] !== "false" &&
         args["originality-bonus"] !== "0";
-    }
-    if (args["axes-json"]) {
-      try {
-        settings.profileAxes = JSON.parse(args["axes-json"]);
-      } catch (e) {
-        sock.disconnect();
-        die({ error: "invalid --axes-json: " + e.message });
-      }
     }
     const ack = await emit(sock, "room:create", {
       hostName: args.name,
@@ -281,11 +264,9 @@ async function main() {
     case "guess": {
       if (!args.target) die("--target required");
       const picks = parseList(args.picks);
-      const axes = parseList(args.axes).map((s) => parseInt(s, 10));
       const ack = await emit(sock, "guess:submit", {
         targetId: args.target,
         picks,
-        axes,
       });
       emitJSON(ack);
       break;

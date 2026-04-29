@@ -1,32 +1,20 @@
 import { customAlphabet } from "nanoid";
 import {
-  AXIS_LABEL_MAX_LEN,
   CLUE_COUNT_MAX,
   CLUE_COUNT_MIN,
   CLUE_WORD_MAX_LEN,
-  DEFAULT_PROFILE_AXES,
   DEFAULT_SETTINGS,
   LANGUAGES,
-  PROFILE_AXES_MAX,
-  PROFILE_AXES_MIN,
-  PROFILE_AXIS_MAX,
-  PROFILE_AXIS_MIN,
-  PROFILE_BINARY_HIGH,
-  PROFILE_BINARY_LOW,
   triangular,
   SCORING_MODES,
   SETTINGS_BOUNDS,
-  type AxisPair,
   type Language,
-  type ProfileMode,
   type FullClue,
   type Phase,
   type OwedAction,
   type PendingGuess,
-  type ProfileAccuracy,
-  type ProfileFeedback,
   type PublicClue,
-  type PublicNation,
+  type PublicClueHistory,
   type PublicState,
   type RoomSettings,
   type ScoringMode,
@@ -57,18 +45,11 @@ export interface Player {
   /** When non-null, the bank is running (counting down) since this timestamp. */
   bankActiveSince: number | null;
   lastRoundDelta: number;
-  /** Hidden profile (1..5 per axis). Set at game start. */
-  profile: number[];
   /** Clue words this player has used so far in the game, in submission order. */
   clueHistory: string[];
-  /** Per-target per-axis correctness for THIS round (consumed at next round start). */
-  hitsThisRound: Map<string, boolean[]>;
   /** Score breakdown, accumulates over the game. score = sum of these. */
   wordScoreAsGuesser: number;
   wordScoreAsTarget: number;
-  profileScoreAsGuesser: number;
-  profileScoreAsTarget: number;
-  accuracyBonus: number;
 }
 
 export interface Round {
@@ -82,8 +63,6 @@ export interface Round {
   guessStartedAt: Map<string, Map<string, number>>; // guesserId -> targetId -> ts
   /** Anonymous labels assigned to each player for this round. */
   labels: Map<string, string>;
-  /** Profile guesses for this round. guesserId -> targetId -> axis values. */
-  profileGuesses: Map<string, Map<string, number[]>>;
 }
 
 const ANIMAL_LABELS = [
@@ -128,10 +107,6 @@ export interface Room {
   round: Round | null;
   winnerId: string | null;
   createdAt: number;
-  /** Cumulative per-target axis sums across every guess ever submitted. */
-  profileGuessSums: Map<string, number[]>;
-  /** Total number of guesses ever submitted for each target. */
-  profileGuessSamples: Map<string, number>;
   /** Snapshot of every resolved round, in order. Used for game-log persistence. */
   history: RoundLog[];
 }
@@ -176,10 +151,6 @@ export function clampSettings(input: Partial<RoomSettings>): RoomSettings {
   if (!SCORING_MODES.includes(merged.scoring)) {
     merged.scoring = DEFAULT_SETTINGS.scoring;
   }
-  if (merged.profileMode !== "gradient" && merged.profileMode !== "binary") {
-    merged.profileMode = DEFAULT_SETTINGS.profileMode;
-  }
-  merged.profileAxes = cleanProfileAxes(merged.profileAxes);
   for (const [key, bounds] of Object.entries(SETTINGS_BOUNDS) as [
     keyof typeof SETTINGS_BOUNDS,
     { min: number; max: number },
@@ -295,52 +266,10 @@ function makePlayer(name: string, isHost: boolean, bankSeconds: number): Player 
     bankSeconds,
     bankActiveSince: null,
     lastRoundDelta: 0,
-    profile: [],
     clueHistory: [],
-    hitsThisRound: new Map(),
     wordScoreAsGuesser: 0,
     wordScoreAsTarget: 0,
-    profileScoreAsGuesser: 0,
-    profileScoreAsTarget: 0,
-    accuracyBonus: 0,
   };
-}
-
-function randomProfile(numAxes: number, mode: ProfileMode): number[] {
-  const result: number[] = [];
-  for (let i = 0; i < numAxes; i++) {
-    if (mode === "binary") {
-      result.push(Math.random() < 0.5 ? PROFILE_BINARY_LOW : PROFILE_BINARY_HIGH);
-    } else {
-      result.push(
-        PROFILE_AXIS_MIN +
-          Math.floor(Math.random() * (PROFILE_AXIS_MAX - PROFILE_AXIS_MIN + 1)),
-      );
-    }
-  }
-  return result;
-}
-
-function cleanAxisLabel(s: unknown, fallback: string): string {
-  if (typeof s !== "string") return fallback;
-  const trimmed = s.trim().slice(0, AXIS_LABEL_MAX_LEN);
-  return trimmed || fallback;
-}
-
-function cleanProfileAxes(raw: unknown): AxisPair[] {
-  if (!Array.isArray(raw) || raw.length === 0) return DEFAULT_PROFILE_AXES;
-  const cleaned: AxisPair[] = [];
-  for (const item of raw as unknown[]) {
-    if (!item || typeof item !== "object") continue;
-    const obj = item as { left?: unknown; right?: unknown };
-    cleaned.push({
-      left: cleanAxisLabel(obj.left, "Low"),
-      right: cleanAxisLabel(obj.right, "High"),
-    });
-    if (cleaned.length >= PROFILE_AXES_MAX) break;
-  }
-  if (cleaned.length < PROFILE_AXES_MIN) return DEFAULT_PROFILE_AXES;
-  return cleaned;
 }
 
 export function cleanName(name: string): string {
@@ -364,8 +293,6 @@ export function createRoom(
     round: null,
     winnerId: null,
     createdAt: Date.now(),
-    profileGuessSums: new Map(),
-    profileGuessSamples: new Map(),
     history: [],
   };
   rooms.set(code, room);
@@ -467,12 +394,6 @@ export function startGame(room: Room, player: Player): void {
   if (!player.isHost) throw new Error("Only the host can start the game");
   if (room.phase !== "lobby") throw new Error("Game already started");
   if (room.players.length < 2) throw new Error("Need at least 2 players to start");
-  for (const p of room.players) {
-    p.profile = randomProfile(
-      room.settings.profileAxes.length,
-      room.settings.profileMode,
-    );
-  }
   room.phase = "round";
   room.round = newRound(room, 1);
   syncAllBankActivity(room, Date.now());
@@ -500,7 +421,6 @@ function newRound(
     guesses: new Map(),
     guessStartedAt: new Map(),
     labels: assignLabels(room.players),
-    profileGuesses: new Map(),
   };
 }
 
@@ -578,7 +498,6 @@ export function submitGuess(
   player: Player,
   targetId: string,
   picksRaw: string[],
-  axesRaw: number[],
 ): void {
   if (room.phase !== "round" || !room.round) {
     throw new Error("Not in a round");
@@ -606,25 +525,9 @@ export function submitGuess(
   if (picks.length !== targetClue.count) {
     throw new Error(`Pick exactly ${targetClue.count} words`);
   }
-  const axes = room.settings.publicFigures
-    ? validateAxisGuess(
-        axesRaw,
-        room.settings.profileAxes.length,
-        room.settings.profileMode,
-      )
-    : [];
   const now = Date.now();
   closeAllBanks(room, now);
   outer.set(targetId, picks);
-  let profileOuter = round.profileGuesses.get(player.id);
-  if (!profileOuter) {
-    profileOuter = new Map();
-    round.profileGuesses.set(player.id, profileOuter);
-  }
-  profileOuter.set(targetId, axes);
-  // Note: we do NOT update `room.profileGuessSums` here. The public figure
-  // (Nations panel) should reflect end-of-previous-round values only, current-round
-  // guesses are folded in at round resolve. See `tryResolveRound`.
   applyBankTopUp(
     player,
     room.settings.guessPhaseSeconds,
@@ -632,39 +535,6 @@ export function submitGuess(
   );
   syncAllBankActivity(room, now);
   tryResolveRound(room);
-}
-
-function validateAxisGuess(
-  raw: unknown,
-  expectedLength: number,
-  mode: ProfileMode,
-): number[] {
-  if (!Array.isArray(raw)) throw new Error("Bad axis guess");
-  if (raw.length !== expectedLength) {
-    throw new Error(`Axis guess must have exactly ${expectedLength} values`);
-  }
-  const result: number[] = [];
-  for (const v of raw) {
-    if (typeof v !== "number" || !Number.isFinite(v)) {
-      throw new Error("Axis values must be numbers");
-    }
-    let n = Math.round(v);
-    if (mode === "binary") {
-      if (n !== PROFILE_BINARY_LOW && n !== PROFILE_BINARY_HIGH) {
-        throw new Error(
-          `In binary mode, axis values must be exactly ${PROFILE_BINARY_LOW} or ${PROFILE_BINARY_HIGH}`,
-        );
-      }
-    } else {
-      if (n < PROFILE_AXIS_MIN || n > PROFILE_AXIS_MAX) {
-        throw new Error(
-          `Axis values must be between ${PROFILE_AXIS_MIN} and ${PROFILE_AXIS_MAX}`,
-        );
-      }
-    }
-    result.push(n);
-  }
-  return result;
 }
 
 function validatePicks(pool: string[], raw: string[]): string[] {
@@ -730,16 +600,12 @@ function tryResolveRound(room: Room): void {
     }
   }
   // All guesses in. Compute scores.
-  for (const p of room.players) {
-    p.lastRoundDelta = 0;
-    p.hitsThisRound = new Map();
-  }
+  for (const p of room.players) p.lastRoundDelta = 0;
   const uniqueness = room.settings.originalityBonus
     ? computeUniqueness(round)
     : null;
   for (const guesserId of submitters) {
     const inner = round.guesses.get(guesserId)!;
-    const profileInner = round.profileGuesses.get(guesserId);
     for (const targetId of submitters) {
       if (targetId === guesserId) continue;
       const picks = inner.get(targetId) ?? [];
@@ -764,59 +630,20 @@ function tryResolveRound(room: Room): void {
       target.score += delta;
       target.lastRoundDelta += delta;
       target.wordScoreAsTarget += delta;
-
-      // Profile scoring: per-axis +1 symmetric to both guesser and target.
-      const axesGuess = profileInner?.get(targetId);
-      if (axesGuess) {
-        const axisHits: boolean[] = [];
-        let axisCorrect = 0;
-        for (let i = 0; i < axesGuess.length; i++) {
-          const correct = axesGuess[i] === target.profile[i];
-          axisHits.push(correct);
-          if (correct) axisCorrect++;
-        }
-        guesser.hitsThisRound.set(targetId, axisHits);
-        guesser.score += axisCorrect;
-        guesser.lastRoundDelta += axisCorrect;
-        guesser.profileScoreAsGuesser += axisCorrect;
-        target.score += axisCorrect;
-        target.lastRoundDelta += axisCorrect;
-        target.profileScoreAsTarget += axisCorrect;
-      }
     }
   }
   // Snapshot the resolved round before any further mutation.
   room.history.push(snapshotRound(round));
-  // Append clue words to nations.
+  // Append clue words to per-player history.
   for (const p of room.players) {
     const c = round.clues.get(p.id);
     if (c) p.clueHistory.push(c.word);
   }
-  if (room.settings.publicFigures) {
-    // Now (and only now) fold this round's profile guesses into the cumulative
-    // public figure so the Nations panel updates end-of-round, not live.
-    const numAxes = room.settings.profileAxes.length;
-    for (const [, perTarget] of round.profileGuesses) {
-      for (const [targetId, axesGuess] of perTarget) {
-        let sums = room.profileGuessSums.get(targetId);
-        if (!sums) {
-          sums = new Array<number>(numAxes).fill(0);
-          room.profileGuessSums.set(targetId, sums);
-        }
-        for (let i = 0; i < axesGuess.length; i++) sums[i] += axesGuess[i];
-        room.profileGuessSamples.set(
-          targetId,
-          (room.profileGuessSamples.get(targetId) ?? 0) + 1,
-        );
-      }
-    }
-  }
-  // First-to-N detection (based on round-only scores; bonus applied AFTER game ends).
+  // First-to-N detection.
   const target = room.settings.pointsPerPlayer * room.players.length;
   const reachers = room.players.filter((p) => p.score >= target);
   if (reachers.length > 0) {
-    if (room.settings.publicFigures) applyPublicAccuracyBonus(room);
-    // Highest final score wins (after bonus). Ties broken by score, then by reaching first.
+    // Highest final score wins. Ties broken by score, then by reaching first.
     let winner = room.players[0];
     for (const p of room.players) {
       if (p.score > winner.score) winner = p;
@@ -830,32 +657,6 @@ function tryResolveRound(room: Room): void {
   }
   // Round is over, pause everyone's bank.
   closeAllBanks(room, Date.now());
-}
-
-function snapToValid(avg: number, mode: ProfileMode): number {
-  if (mode === "binary") {
-    // Threshold midway between 1 and 5 (= 3): below → 1 (LOW), at-or-above → 5 (HIGH).
-    return avg < 3 ? PROFILE_BINARY_LOW : PROFILE_BINARY_HIGH;
-  }
-  return Math.round(avg);
-}
-
-function applyPublicAccuracyBonus(room: Room): void {
-  const numAxes = room.settings.profileAxes.length;
-  for (const target of room.players) {
-    const sums = room.profileGuessSums.get(target.id);
-    const samples = room.profileGuessSamples.get(target.id) ?? 0;
-    if (!sums || samples === 0) continue;
-    let matches = 0;
-    for (let i = 0; i < numAxes; i++) {
-      const rounded = snapToValid(sums[i] / samples, room.settings.profileMode);
-      if (rounded === target.profile[i]) matches++;
-    }
-    const bonus = matches * room.settings.publicAccuracyBonus;
-    target.score += bonus;
-    target.lastRoundDelta += bonus;
-    target.accuracyBonus += bonus;
-  }
 }
 
 export function nextRound(room: Room, player: Player): void {
@@ -888,18 +689,14 @@ export function viewFor(room: Room, playerId: string): PublicState {
   const me = room.players.find((p) => p.id === playerId);
   const round = room.round;
   const isReveal = room.phase === "reveal" || room.phase === "ended";
-  const showOthersScores = room.phase === "ended";
 
   const isAnonRound = room.phase === "round" && room.round !== null;
   const labels = room.round?.labels;
 
-  const myProfileGuessesPublic: { [k: string]: number[] } = {};
   let publicRound = null;
   let publicMe = {
     clue: null as FullClue | null,
     guesses: {} as { [k: string]: string[] },
-    profileGuesses: myProfileGuessesPublic,
-    profile: me?.profile ?? [],
     owedAction: "idle" as OwedAction,
     nextTarget: null as PendingGuess | null,
     bankSeconds: me?.bankSeconds ?? 0,
@@ -983,17 +780,9 @@ export function viewFor(room: Room, playerId: string): PublicState {
         myGuesses[targetId] = picks;
       }
     }
-    const myProfileGuesses = round.profileGuesses.get(playerId);
-    if (myProfileGuesses) {
-      for (const [targetId, axes] of myProfileGuesses) {
-        myProfileGuessesPublic[targetId] = axes;
-      }
-    }
     publicMe = {
       clue: myClue,
       guesses: myGuesses,
-      profileGuesses: myProfileGuessesPublic,
-      profile: me?.profile ?? [],
       owedAction: "idle",
       nextTarget: pendingGuesses[0] ?? null,
       bankSeconds: me?.bankSeconds ?? 0,
@@ -1008,28 +797,12 @@ export function viewFor(room: Room, playerId: string): PublicState {
     publicRound?.pendingGuesses ?? [],
   );
 
-  // Build nations (always present once round exists).
-  const nations: PublicNation[] = room.players.map((p) => buildNation(room, p));
-
-  // Profile feedback for me at reveal/ended.
-  let profileFeedback: ProfileFeedback | null = null;
-  if (
-    me &&
-    (room.phase === "reveal" || room.phase === "ended") &&
-    me.hitsThisRound.size > 0
-  ) {
-    const hits: { [k: string]: boolean[] } = {};
-    for (const [t, h] of me.hitsThisRound) hits[t] = [...h];
-    profileFeedback = { hits };
-  }
-
-  let trueProfiles: { [k: string]: number[] } | undefined;
-  let accuracy: ProfileAccuracy[] | undefined;
-  if (room.phase === "ended") {
-    trueProfiles = {};
-    for (const p of room.players) trueProfiles[p.id] = [...p.profile];
-    accuracy = computeAccuracy(room);
-  }
+  // Per-player clue history snapshot (always present once round exists).
+  const clueHistories: PublicClueHistory[] = room.players.map((p) => ({
+    playerId: p.id,
+    name: p.name,
+    clueHistory: [...p.clueHistory],
+  }));
 
   return {
     phase: room.phase,
@@ -1052,9 +825,6 @@ export function viewFor(room: Room, playerId: string): PublicState {
         breakdown: {
           wordGuesser: p.wordScoreAsGuesser,
           wordTarget: p.wordScoreAsTarget,
-          profileGuesser: p.profileScoreAsGuesser,
-          profileTarget: p.profileScoreAsTarget,
-          accuracyBonus: p.accuracyBonus,
         },
       };
     }),
@@ -1063,40 +833,8 @@ export function viewFor(room: Room, playerId: string): PublicState {
     me: publicMe,
     round: publicRound,
     winnerId: room.winnerId,
-    nations,
-    profileFeedback,
-    trueProfiles,
-    accuracy,
+    clueHistories,
   };
-}
-
-function computeAccuracy(room: Room): ProfileAccuracy[] {
-  const numAxes = room.settings.profileAxes.length;
-  return room.players.map((target) => {
-    const sums = room.profileGuessSums.get(target.id);
-    const samples = room.profileGuessSamples.get(target.id) ?? 0;
-    const rawPublic: (number | null)[] = new Array(numAxes).fill(null);
-    const roundedPublic: (number | null)[] = new Array(numAxes).fill(null);
-    const matches: boolean[] = new Array(numAxes).fill(false);
-    if (sums && samples > 0) {
-      for (let i = 0; i < numAxes; i++) {
-        const raw = sums[i] / samples;
-        const r = snapToValid(raw, room.settings.profileMode);
-        rawPublic[i] = raw;
-        roundedPublic[i] = r;
-        matches[i] = r === target.profile[i];
-      }
-    }
-    const matchCount = matches.filter((m) => m).length;
-    return {
-      playerId: target.id,
-      matches,
-      rawPublic,
-      roundedPublic,
-      truth: [...target.profile],
-      bonus: matchCount * room.settings.publicAccuracyBonus,
-    };
-  });
 }
 
 function computeOwedAction(
@@ -1124,21 +862,3 @@ function computeOwedAction(
   }
 }
 
-function buildNation(room: Room, target: Player): PublicNation {
-  const numAxes = room.settings.profileAxes.length;
-  const sums = room.profileGuessSums.get(target.id);
-  const samples = room.profileGuessSamples.get(target.id) ?? 0;
-  const averageAxes: (number | null)[] = new Array(numAxes).fill(null);
-  if (sums && samples > 0) {
-    for (let i = 0; i < numAxes; i++) {
-      averageAxes[i] = sums[i] / samples;
-    }
-  }
-  return {
-    playerId: target.id,
-    name: target.name,
-    clueHistory: [...target.clueHistory],
-    averageAxes,
-    guessSamples: samples,
-  };
-}

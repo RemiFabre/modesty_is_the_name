@@ -123,10 +123,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("guess:submit", ({ targetId, picks, axes }, cb) => {
+  socket.on("guess:submit", ({ targetId, picks }, cb) => {
     try {
       const ctx = mustContext(socket.id);
-      submitGuess(ctx.room, ctx.player, targetId, picks, axes);
+      submitGuess(ctx.room, ctx.player, targetId, picks);
       cb({ ok: true });
       broadcastState(ctx.room);
     } catch (err) {

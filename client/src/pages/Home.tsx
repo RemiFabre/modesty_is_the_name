@@ -1,18 +1,12 @@
 import { useState } from "react";
 import {
-  AXIS_LABEL_MAX_LEN,
   DEFAULT_SETTINGS,
   LANGUAGE_NAMES,
   LANGUAGES,
-  PROFILE_AXES_MAX,
-  PROFILE_AXES_MIN,
-  PROFILE_PRESETS,
   SCORING_MODE_INFO,
   SCORING_MODES,
   SETTINGS_BOUNDS,
-  type AxisPair,
   type RoomSettings,
-  type ScoringMode,
 } from "../../../shared/types";
 import { getSocket } from "../socket";
 import { loadName, saveName, saveSessionToken } from "../session";
@@ -148,13 +142,6 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
           />
 
           <ToggleField
-            label="Profile play"
-            value={settings.publicFigures}
-            onChange={(v) => setSettings((s) => ({ ...s, publicFigures: v }))}
-            description="When ON, every guess on a player's axes feeds a cumulative average, the 'public figure' shown in the Nations panel during play and at reveal. At game end, each player gets a bonus per axis where their rounded public figure matches the truth (rewards being legible). When OFF, axes still score +1 per matching guess each round, but no cumulative averages are tracked and no end-of-game bonus is awarded."
-          />
-
-          <ToggleField
             label="Originality bonus"
             value={settings.originalityBonus}
             onChange={(v) =>
@@ -162,15 +149,6 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
             }
             description="When ON, each correctly-guessed word is weighted by how unique that pick was. If only the target cluer picked the word, it counts for full credit; if every cluer picked it, it counts for 0. Formula: U(w) = 1 - (c-1)/(N-1), where c = cluers who picked w and N = number of cluers. Discourages convergence on the obvious cluster (everyone clueing 'animals' on the same animal pool) and rewards lateral connections nobody else saw."
           />
-
-          {settings.publicFigures && (
-            <ProfileAxesEditor
-              axes={settings.profileAxes}
-              onChange={(profileAxes) =>
-                setSettings((s) => ({ ...s, profileAxes }))
-              }
-            />
-          )}
 
           <button
             type="button"
@@ -228,16 +206,6 @@ export function Home({ onCreated }: { onCreated: (code: string) => void }) {
                   setSettings((s) => ({ ...s, pointsPerPlayer: v }))
                 }
               />
-              {settings.publicFigures && (
-                <NumberField
-                  label="Public-accuracy bonus / axis"
-                  value={settings.publicAccuracyBonus}
-                  bounds={SETTINGS_BOUNDS.publicAccuracyBonus}
-                  onChange={(v) =>
-                    setSettings((s) => ({ ...s, publicAccuracyBonus: v }))
-                  }
-                />
-              )}
             </div>
           )}
 
@@ -344,101 +312,3 @@ function NumberField({
   );
 }
 
-function ProfileAxesEditor({
-  axes,
-  onChange,
-}: {
-  axes: AxisPair[];
-  onChange: (next: AxisPair[]) => void;
-}) {
-  function setPreset(id: string) {
-    if (id === "custom") return; // keep current axes
-    const preset = PROFILE_PRESETS.find((p) => p.id === id);
-    if (preset) onChange(preset.axes.map((a) => ({ ...a })));
-  }
-
-  // Detect which preset (if any) currently matches.
-  const currentPresetId =
-    PROFILE_PRESETS.find(
-      (p) =>
-        p.axes.length === axes.length &&
-        p.axes.every(
-          (a, i) =>
-            a.left === axes[i]?.left && a.right === axes[i]?.right,
-        ),
-    )?.id ?? "custom";
-
-  function updateAxis(i: number, patch: Partial<AxisPair>) {
-    onChange(
-      axes.map((a, idx) =>
-        idx === i ? { left: patch.left ?? a.left, right: patch.right ?? a.right } : a,
-      ),
-    );
-  }
-  function addAxis() {
-    if (axes.length >= PROFILE_AXES_MAX) return;
-    onChange([...axes, { left: "Low", right: "High" }]);
-  }
-  function removeAxis(i: number) {
-    if (axes.length <= PROFILE_AXES_MIN) return;
-    onChange(axes.filter((_, idx) => idx !== i));
-  }
-
-  return (
-    <div className="field">
-      <span>Profile axes</span>
-      <select
-        value={currentPresetId}
-        onChange={(e) => setPreset(e.target.value)}
-      >
-        {PROFILE_PRESETS.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.label} ({p.axes.length} axes)
-          </option>
-        ))}
-        <option value="custom">Custom</option>
-      </select>
-      <div className="axes-editor">
-        {axes.map((a, i) => (
-          <div key={i} className="axis-edit-row">
-            <input
-              value={a.left}
-              maxLength={AXIS_LABEL_MAX_LEN}
-              onChange={(e) => updateAxis(i, { left: e.target.value })}
-              placeholder="Left"
-            />
-            <span className="axis-edit-sep">↔</span>
-            <input
-              value={a.right}
-              maxLength={AXIS_LABEL_MAX_LEN}
-              onChange={(e) => updateAxis(i, { right: e.target.value })}
-              placeholder="Right"
-            />
-            <button
-              type="button"
-              className="ghost axis-edit-rm"
-              onClick={() => removeAxis(i)}
-              disabled={axes.length <= PROFILE_AXES_MIN}
-              title="Remove"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-      </div>
-      <div className="row">
-        <button
-          type="button"
-          className="ghost"
-          onClick={addAxis}
-          disabled={axes.length >= PROFILE_AXES_MAX}
-        >
-          + Add axis
-        </button>
-        <span className="muted small">
-          {axes.length} / {PROFILE_AXES_MAX} (min {PROFILE_AXES_MIN})
-        </span>
-      </div>
-    </div>
-  );
-}

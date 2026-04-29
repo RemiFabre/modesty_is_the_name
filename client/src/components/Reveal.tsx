@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { PublicState } from "../../../shared/types";
 import { getSocket } from "../socket";
-import { NationsPanel } from "./Nations";
+import { ClueHistoryPanel } from "./ClueHistory";
 import { WordPool } from "./WordPool";
 
 export function Reveal({ state }: { state: PublicState }) {
@@ -13,8 +13,7 @@ export function Reveal({ state }: { state: PublicState }) {
   const me = state.players.find((p) => p.id === state.myPlayerId);
   const myDelta = me?.lastRoundDelta ?? 0;
 
-  // Build a unified list: every clue-submitter gets a card.
-  const cluesById = round.opponentClues; // includes my own only if backend chose to; here it doesn't, so handle separately
+  const cluesById = round.opponentClues;
   const myClue = state.me.clue;
 
   function nextRound() {
@@ -66,9 +65,7 @@ export function Reveal({ state }: { state: PublicState }) {
           );
         })}
 
-        <ProfileResults state={state} />
-
-        <NationsPanel state={state} />
+        <ClueHistoryPanel state={state} />
 
         {state.isHost ? (
           <button
@@ -89,59 +86,6 @@ export function Reveal({ state }: { state: PublicState }) {
   );
 }
 
-function ProfileResults({ state }: { state: PublicState }) {
-  if (!state.settings.publicFigures) return null;
-  const fb = state.profileFeedback;
-  if (!fb) return null;
-  const axes = state.settings.profileAxes;
-  const targets = Object.keys(fb.hits);
-  if (targets.length === 0) return null;
-
-  return (
-    <section className="card">
-      <h2>Profile guesses</h2>
-      <p className="muted small">
-        Each axis: green ✓ if your guess was right, red ✗ if not. (+1 each.)
-      </p>
-      <ul className="profile-results">
-        {targets.map((tid) => {
-          const player = state.players.find((p) => p.id === tid);
-          if (!player) return null;
-          const axisHits = fb.hits[tid];
-          const correctCount = axisHits.filter((h) => h).length;
-          return (
-            <li key={tid} className="profile-result">
-              <div className="profile-result-head">
-                <span className="player-name">
-                  {player.realName ?? player.name}
-                </span>
-                <span className="muted small">
-                  {correctCount} / {axes.length}
-                </span>
-              </div>
-              <ul className="profile-result-axes">
-                {axes.map((a, i) => (
-                  <li
-                    key={i}
-                    className={axisHits[i] ? "axis-hit" : "axis-miss"}
-                  >
-                    <span className="axis-mark">
-                      {axisHits[i] ? "✓" : "✗"}
-                    </span>
-                    <span className="muted small">
-                      {a.left} ↔ {a.right}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
 function ClueResultCard({
   state,
   ownerId,
@@ -157,7 +101,6 @@ function ClueResultCard({
 }) {
   const round = state.round!;
   const intendedSet = new Set(clue.intended ?? []);
-  // Per-guesser breakdown.
   const guessers = state.players.filter((p) => p.id !== ownerId);
 
   return (

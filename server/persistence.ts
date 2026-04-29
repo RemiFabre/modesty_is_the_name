@@ -25,8 +25,6 @@ export interface RoundLog {
   >;
   /** guesserId → targetId → picks. */
   guesses: Record<string, Record<string, string[]>>;
-  /** guesserId → targetId → axis values. */
-  profileGuesses: Record<string, Record<string, number[]>>;
 }
 
 export interface PlayerLog {
@@ -36,19 +34,11 @@ export interface PlayerLog {
   breakdown: {
     wordGuesser: number;
     wordTarget: number;
-    profileGuesser: number;
-    profileTarget: number;
-    accuracyBonus: number;
   };
-  trueProfile: number[];
-  /** Cumulative public-figure averages at game end (pre-rounding). */
-  publicAxes: (number | null)[];
-  /** Whether the rounded public-figure matched the true value (per axis). */
-  axisMatches: boolean[];
 }
 
 export interface GameLog {
-  version: 1;
+  version: 2;
   gameId: string;
   roomCode: string;
   startedAt: number;
@@ -88,29 +78,10 @@ export function snapshotRound(round: Round): RoundLog {
         ),
       ]),
     ),
-    profileGuesses: Object.fromEntries(
-      [...round.profileGuesses].map(([gId, perTarget]) => [
-        gId,
-        Object.fromEntries(
-          [...perTarget].map(([tId, axes]) => [tId, [...axes]]),
-        ),
-      ]),
-    ),
   };
 }
 
-function buildPlayerLog(room: Room, player: Player): PlayerLog {
-  const numAxes = room.settings.profileAxes.length;
-  const sums = room.profileGuessSums.get(player.id);
-  const samples = room.profileGuessSamples.get(player.id) ?? 0;
-  const publicAxes: (number | null)[] = new Array(numAxes).fill(null);
-  const axisMatches: boolean[] = new Array(numAxes).fill(false);
-  if (sums && samples > 0) {
-    for (let i = 0; i < numAxes; i++) {
-      publicAxes[i] = sums[i] / samples;
-      axisMatches[i] = Math.round(sums[i] / samples) === player.profile[i];
-    }
-  }
+function buildPlayerLog(player: Player): PlayerLog {
   return {
     id: player.id,
     name: player.name,
@@ -118,13 +89,7 @@ function buildPlayerLog(room: Room, player: Player): PlayerLog {
     breakdown: {
       wordGuesser: player.wordScoreAsGuesser,
       wordTarget: player.wordScoreAsTarget,
-      profileGuesser: player.profileScoreAsGuesser,
-      profileTarget: player.profileScoreAsTarget,
-      accuracyBonus: player.accuracyBonus,
     },
-    trueProfile: [...player.profile],
-    publicAxes,
-    axisMatches,
   };
 }
 
@@ -133,7 +98,7 @@ export function buildGameLog(room: Room): GameLog {
   const startedAt = room.history[0]?.startedAt ?? room.createdAt;
   const gameId = `${endedAt}-${room.code}`;
   return {
-    version: 1,
+    version: 2,
     gameId,
     roomCode: room.code,
     startedAt,
@@ -141,8 +106,8 @@ export function buildGameLog(room: Room): GameLog {
     durationSec: Math.round((endedAt - startedAt) / 1000),
     numRounds: room.history.length,
     numPlayers: room.players.length,
-    settings: { ...room.settings, profileAxes: [...room.settings.profileAxes] },
-    players: room.players.map((p) => buildPlayerLog(room, p)),
+    settings: { ...room.settings },
+    players: room.players.map((p) => buildPlayerLog(p)),
     rounds: [...room.history],
     winnerId: room.winnerId,
   };

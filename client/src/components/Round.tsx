@@ -3,18 +3,11 @@ import {
   CLUE_COUNT_MAX,
   CLUE_COUNT_MIN,
   CLUE_WORD_MAX_LEN,
-  PROFILE_AXIS_MAX,
-  PROFILE_AXIS_MIN,
-  PROFILE_AXIS_VALUES,
-  PROFILE_BINARY_HIGH,
-  PROFILE_BINARY_LOW,
-  type AxisPair,
-  type ProfileMode,
   type PublicClue,
   type PublicPlayer,
   type PublicState,
 } from "../../../shared/types";
-import { NationsPanel } from "./Nations";
+import { ClueHistoryPanel } from "./ClueHistory";
 import { getSocket } from "../socket";
 import { useNow } from "../useNow";
 import { WordPool } from "./WordPool";
@@ -123,10 +116,7 @@ export function Round({ state }: { state: PublicState }) {
         </p>
       </header>
       <main className="main">
-        <InstructionPrompt
-          activity={activity}
-          profilesActive={state.settings.publicFigures}
-        />
+        <InstructionPrompt activity={activity} />
 
         <section className="card pool-card">
           <WordPool
@@ -146,9 +136,6 @@ export function Round({ state }: { state: PublicState }) {
             targetName={activity.row.player.name}
             count={activity.row.clue.count}
             selected={selected}
-            axes={state.settings.profileAxes}
-            profileMode={state.settings.profileMode}
-            profilesActive={state.settings.publicFigures}
             onSubmitted={() => setSelected(new Set())}
           />
         )}
@@ -162,7 +149,7 @@ export function Round({ state }: { state: PublicState }) {
 
         <Standings state={state} />
 
-        <NationsPanel state={state} />
+        <ClueHistoryPanel state={state} />
 
         {myClue && (
           <section className="card subtle">
@@ -178,13 +165,7 @@ export function Round({ state }: { state: PublicState }) {
   );
 }
 
-function InstructionPrompt({
-  activity,
-  profilesActive,
-}: {
-  activity: Activity;
-  profilesActive: boolean;
-}) {
+function InstructionPrompt({ activity }: { activity: Activity }) {
   if (activity.kind === "clue") {
     return (
       <section className="prompt">
@@ -192,13 +173,6 @@ function InstructionPrompt({
           Tap the public words you want others to find, then type your clue word
           below. Pick between {CLUE_COUNT_MIN} and {CLUE_COUNT_MAX} words.
         </p>
-        {profilesActive && (
-          <p className="muted small">
-            If you can, pick a clue word that fits your private profile.
-            Opponents who read your axes right give <strong>you</strong> points
-            too, and there's an end-of-game bonus for being clearly readable.
-          </p>
-        )}
         <p className="muted small">
           Heads-up: every word any player picks here is removed from the pool
           next round and replaced with a fresh one. Words no one targets stay.
@@ -296,54 +270,20 @@ function GuessAction({
   targetName,
   count,
   selected,
-  axes,
-  profileMode,
-  profilesActive,
   onSubmitted,
 }: {
   targetId: string;
   targetName: string;
   count: number;
   selected: ReadonlySet<string>;
-  axes: AxisPair[];
-  profileMode: ProfileMode;
-  profilesActive: boolean;
   onSubmitted: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Default depends on mode: gradient defaults to middle (3) for quick submit;
-  // binary defaults to 0 (unselected sentinel) so user must commit. When profiles
-  // are off, the array is empty and the UI block is hidden.
-  const [axisValues, setAxisValues] = useState<number[]>(() =>
-    profilesActive
-      ? new Array(axes.length).fill(profileMode === "binary" ? 0 : 3)
-      : [],
-  );
-  // Reset axis values when we switch to a different opponent (or the axis count or mode changed).
-  useEffect(() => {
-    setAxisValues(
-      profilesActive
-        ? new Array(axes.length).fill(profileMode === "binary" ? 0 : 3)
-        : [],
-    );
-    // intentionally only depending on these scalars, `axes` is a new array
-    // reference on every state broadcast, which would otherwise reset user input.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetId, axes.length, profileMode, profilesActive]);
 
   const remaining = count - selected.size;
   const wordsOk = remaining === 0;
-  const axesOk = !profilesActive
-    ? true
-    : profileMode === "binary"
-      ? axisValues.every(
-          (v) => v === PROFILE_BINARY_LOW || v === PROFILE_BINARY_HIGH,
-        )
-      : axisValues.every(
-          (v) => v >= PROFILE_AXIS_MIN && v <= PROFILE_AXIS_MAX,
-        );
-  const canSubmit = wordsOk && axesOk && !busy;
+  const canSubmit = wordsOk && !busy;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -352,7 +292,7 @@ function GuessAction({
     setError(null);
     getSocket().emit(
       "guess:submit",
-      { targetId, picks: Array.from(selected), axes: axisValues },
+      { targetId, picks: Array.from(selected) },
       (ack) => {
         setBusy(false);
         if (!ack.ok) {
@@ -366,23 +306,6 @@ function GuessAction({
 
   return (
     <form className="card action-card" onSubmit={submit}>
-      {profilesActive && (
-        <div className="axes">
-          <h3>Guess {targetName}'s profile</h3>
-          {axes.map((axis, i) => (
-            <AxisGuess
-              key={i}
-              axis={axis}
-              value={axisValues[i]}
-              mode={profileMode}
-              onChange={(v) =>
-                setAxisValues((prev) => prev.map((x, j) => (j === i ? v : x)))
-              }
-              disabled={busy}
-            />
-          ))}
-        </div>
-      )}
       <p className="muted center">
         {selected.size} of {count} word{count === 1 ? "" : "s"} selected
       </p>
@@ -397,72 +320,6 @@ function GuessAction({
       </button>
       {error && <p className="error">{error}</p>}
     </form>
-  );
-}
-
-function AxisGuess({
-  axis,
-  value,
-  mode,
-  onChange,
-  disabled,
-}: {
-  axis: AxisPair;
-  value: number;
-  mode: ProfileMode;
-  onChange: (v: number) => void;
-  disabled?: boolean;
-}) {
-  if (mode === "binary") {
-    return (
-      <div className="axis axis-binary">
-        <div className="axis-binary-buttons">
-          <button
-            type="button"
-            className={
-              "axis-binary-btn axis-binary-left " +
-              (value === PROFILE_BINARY_LOW ? "axis-on" : "")
-            }
-            onClick={() => onChange(PROFILE_BINARY_LOW)}
-            disabled={disabled}
-          >
-            {axis.left}
-          </button>
-          <button
-            type="button"
-            className={
-              "axis-binary-btn axis-binary-right " +
-              (value === PROFILE_BINARY_HIGH ? "axis-on" : "")
-            }
-            onClick={() => onChange(PROFILE_BINARY_HIGH)}
-            disabled={disabled}
-          >
-            {axis.right}
-          </button>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="axis">
-      <div className="axis-labels">
-        <span className="axis-end">{axis.left}</span>
-        <span className="axis-end axis-end-right">{axis.right}</span>
-      </div>
-      <div className="axis-buttons">
-        {PROFILE_AXIS_VALUES.map((n) => (
-          <button
-            key={n}
-            type="button"
-            className={"axis-btn " + (value === n ? "axis-on" : "")}
-            onClick={() => onChange(n)}
-            disabled={disabled}
-          >
-            {n}
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }
 

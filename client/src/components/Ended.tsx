@@ -1,7 +1,5 @@
 import type {
-  AxisPair,
-  ProfileAccuracy,
-  PublicNation,
+  PublicClueHistory,
   PublicPlayer,
   PublicState,
 } from "../../../shared/types";
@@ -11,7 +9,6 @@ export function Ended({ state }: { state: PublicState }) {
   const winner =
     state.players.find((p) => p.id === state.winnerId) ?? ranked[0] ?? null;
   const target = state.settings.pointsPerPlayer * state.players.length;
-  const axes = state.settings.profileAxes;
 
   return (
     <div className="app">
@@ -34,6 +31,18 @@ export function Ended({ state }: { state: PublicState }) {
           </section>
         )}
 
+        <section className="card subtle">
+          <h2>How scoring works</h2>
+          <p className="muted small">
+            Each round, every correctly-guessed word scores symmetrically: the
+            guesser <strong>and</strong> the clue-giver each get the same
+            points. Misses (under symmetric / generous scoring) hit both sides
+            too. Your total below splits that into two halves: points you
+            earned by reading others, and points others earned you by reading
+            your clues.
+          </p>
+        </section>
+
         {ranked.map((p, i) => (
           <PlayerScorecard
             key={p.id}
@@ -41,11 +50,7 @@ export function Ended({ state }: { state: PublicState }) {
             rank={i + 1}
             isWinner={p.id === state.winnerId}
             isMe={p.id === state.myPlayerId}
-            axes={axes}
-            accuracy={state.accuracy?.find((a) => a.playerId === p.id)}
-            nation={state.nations?.find((n) => n.playerId === p.id)}
-            publicAccuracyBonus={state.settings.publicAccuracyBonus}
-            profilesActive={state.settings.publicFigures}
+            history={state.clueHistories?.find((h) => h.playerId === p.id)}
           />
         ))}
       </main>
@@ -58,21 +63,13 @@ function PlayerScorecard({
   rank,
   isWinner,
   isMe,
-  axes,
-  accuracy,
-  nation,
-  publicAccuracyBonus,
-  profilesActive,
+  history,
 }: {
   player: PublicPlayer;
   rank: number;
   isWinner: boolean;
   isMe: boolean;
-  axes: AxisPair[];
-  accuracy?: ProfileAccuracy;
-  nation?: PublicNation;
-  publicAccuracyBonus: number;
-  profilesActive: boolean;
+  history?: PublicClueHistory;
 }) {
   const b = player.breakdown;
   return (
@@ -93,62 +90,28 @@ function PlayerScorecard({
 
       <ul className="breakdown">
         <BreakdownRow
-          label="Words you guessed correctly"
+          label="Words you guessed correctly (your reads)"
           icon="🎯"
           points={b.wordGuesser}
         />
         <BreakdownRow
-          label="Words others got from you"
+          label="Words others got from you (your clues landed)"
           icon="📣"
           points={b.wordTarget}
         />
-        {profilesActive && (
-          <>
-            <BreakdownRow
-              label="Profile axes you read right"
-              icon="🔍"
-              points={b.profileGuesser}
-            />
-            <BreakdownRow
-              label="Profile axes others read right on you"
-              icon="🪞"
-              points={b.profileTarget}
-            />
-            <BreakdownRow
-              label={`Public-figure accuracy bonus (+${publicAccuracyBonus} per matching axis)`}
-              icon="✨"
-              points={b.accuracyBonus}
-            />
-          </>
-        )}
       </ul>
 
-      {nation && nation.clueHistory.length > 0 && (
+      {history && history.clueHistory.length > 0 && (
         <blockquote className="clue-quote">
-          {nation.clueHistory.map((c, i) => (
+          {history.clueHistory.map((c, i) => (
             <span key={i} className="quoted-word">
               {c}
-              {i < nation.clueHistory.length - 1 && (
+              {i < history.clueHistory.length - 1 && (
                 <span className="quote-sep"> · </span>
               )}
             </span>
           ))}
         </blockquote>
-      )}
-
-      {profilesActive && accuracy && (
-        <div className="profile-readout">
-          {axes.map((a, i) => (
-            <AxisRow
-              key={i}
-              axis={a}
-              truth={accuracy.truth[i]}
-              raw={accuracy.rawPublic[i]}
-              rounded={accuracy.roundedPublic[i]}
-              match={accuracy.matches[i]}
-            />
-          ))}
-        </div>
       )}
     </section>
   );
@@ -178,76 +141,5 @@ function BreakdownRow({
         {points >= 0 ? `+${points}` : `${points}`}
       </span>
     </li>
-  );
-}
-
-function AxisRow({
-  axis,
-  truth,
-  raw,
-  rounded,
-  match,
-}: {
-  axis: AxisPair;
-  truth: number;
-  raw: number | null;
-  rounded: number | null;
-  match: boolean;
-}) {
-  // Convert 1..5 values to 0..1 percentages.
-  const truthPct = ((truth - 1) / 4) * 100;
-  const rawPct = raw !== null ? ((raw - 1) / 4) * 100 : null;
-  const distance = raw !== null ? Math.abs(raw - truth) : null;
-
-  return (
-    <div className="axis-row">
-      <div className="axis-row-labels">
-        <span className="axis-end">{axis.left}</span>
-        <span className="axis-end axis-end-right">{axis.right}</span>
-      </div>
-      <div className="axis-row-track">
-        {/* tick marks for 1-5 */}
-        {[1, 2, 3, 4, 5].map((n) => (
-          <span
-            key={n}
-            className="axis-tick"
-            style={{ left: `${((n - 1) / 4) * 100}%` }}
-          />
-        ))}
-        <div
-          className="axis-marker axis-truth"
-          style={{ left: `${truthPct}%` }}
-          title={`True: ${truth}`}
-        />
-        {rawPct !== null && (
-          <div
-            className="axis-marker axis-public"
-            style={{ left: `${rawPct}%` }}
-            title={`Public figure: ${raw!.toFixed(2)}`}
-          />
-        )}
-      </div>
-      <div className="axis-row-numbers">
-        <span className="axis-number-truth">
-          true <strong>{truth}</strong>
-        </span>
-        <span className="axis-number-pub">
-          public{" "}
-          <strong>{raw !== null ? raw.toFixed(2) : "-"}</strong>
-          {rounded !== null && (
-            <span className="muted small"> →{rounded}</span>
-          )}
-        </span>
-        <span className={"axis-mark " + (match ? "axis-hit" : "axis-miss")}>
-          {match ? "✓" : "✗"}
-          {distance !== null && (
-            <span className="muted small axis-distance">
-              {" "}
-              Δ{distance.toFixed(2)}
-            </span>
-          )}
-        </span>
-      </div>
-    </div>
   );
 }

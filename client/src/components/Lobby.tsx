@@ -109,26 +109,6 @@ export function Lobby({ state }: { state: PublicState }) {
               </strong>
             </li>
             <li>
-              <span>Profile play</span>
-              <strong>
-                {state.settings.publicFigures ? "On (public figures)" : "Off"}
-              </strong>
-            </li>
-            <li>
-              <span>Profile axes</span>
-              <strong>
-                {state.settings.profileAxes
-                  .map((a) => `${a.left}↔${a.right}`)
-                  .join(" · ")}
-              </strong>
-            </li>
-            {state.settings.publicFigures && (
-              <li>
-                <span>Public-accuracy bonus</span>
-                <strong>+{state.settings.publicAccuracyBonus} per axis (end of game)</strong>
-              </li>
-            )}
-            <li>
               <span>Pool size</span>
               <strong>{state.settings.poolSize}</strong>
             </li>

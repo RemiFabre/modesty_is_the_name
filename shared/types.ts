@@ -36,91 +36,7 @@ export const LANGUAGE_NAMES: Record<Language, string> = {
   cs: "Čeština",
 };
 
-export interface AxisPair {
-  /** End-label shown for value 1. */
-  left: string;
-  /** End-label shown for value 5. */
-  right: string;
-}
-
-export const PROFILE_AXIS_MIN = 1;
-export const PROFILE_AXIS_MAX = 5;
-export const PROFILE_AXIS_VALUES = [1, 2, 3, 4, 5];
-export const PROFILE_AXES_MIN = 3;
-export const PROFILE_AXES_MAX = 8;
-export const AXIS_LABEL_MAX_LEN = 16;
-
-export interface ProfilePreset {
-  id: string;
-  label: string;
-  axes: AxisPair[];
-}
-
-/**
- * Curated presets, each is 4 binary-friendly axes, vetted via playtests.
- * The earlier 10 presets were narrowed to 4 to converge on quality.
- * See agent reviews from games 1–2 for the rationale (axes that flatten to
- * "neutral" too easily, Abstract/Concrete, Old/New, were dropped).
- */
-export const PROFILE_PRESETS: ProfilePreset[] = [
-  {
-    id: "storyteller",
-    label: "Storyteller",
-    axes: [
-      { left: "Hero", right: "Villain" },
-      { left: "Order", right: "Chaos" },
-      { left: "Mind", right: "Body" },
-      { left: "Fate", right: "Free will" },
-    ],
-  },
-  {
-    id: "texture",
-    label: "Texture",
-    axes: [
-      { left: "Light", right: "Heavy" },
-      { left: "Soft", right: "Sharp" },
-      { left: "Bright", right: "Dark" },
-      { left: "Quiet", right: "Loud" },
-    ],
-  },
-  {
-    id: "temperament",
-    label: "Temperament",
-    axes: [
-      { left: "Brave", right: "Cautious" },
-      { left: "Wild", right: "Civilized" },
-      { left: "Solitary", right: "Social" },
-      { left: "Playful", right: "Serious" },
-    ],
-  },
-  {
-    id: "forces",
-    label: "Forces",
-    axes: [
-      { left: "Fast", right: "Slow" },
-      { left: "Natural", right: "Artificial" },
-      { left: "Calm", right: "Chaotic" },
-      { left: "Strong", right: "Fragile" },
-    ],
-  },
-];
-
-export const DEFAULT_PROFILE_AXES: AxisPair[] =
-  PROFILE_PRESETS.find((p) => p.id === "storyteller")!.axes;
-
 export type ScoringMode = "symmetric" | "generous" | "precision";
-
-/**
- * Profile axis value mode.
- * - "gradient": each axis takes a 1..5 integer (5 levels, classic).
- * - "binary":  each axis takes ONLY the two extremes (1 = left, 5 = right).
- *   Designed to fix the "regression-to-mean" problem where extreme profiles
- *   get smoothed toward 3 by cautious default-3 guesses.
- */
-export type ProfileMode = "gradient" | "binary";
-
-export const PROFILE_BINARY_LOW = 1;
-export const PROFILE_BINARY_HIGH = 5;
 
 export const SCORING_MODES: ScoringMode[] = ["symmetric", "generous", "precision"];
 
@@ -173,18 +89,6 @@ export interface RoomSettings {
   initialBankSeconds: number;
   maxBankSeconds: number;
   pointsPerPlayer: number;
-  /** The axis pairs for the profile-guessing meta-layer. 3..8 entries. */
-  profileAxes: AxisPair[];
-  /** Whether axis values are gradient 1..5 or binary {1, 5}. */
-  profileMode: ProfileMode;
-  /**
-   * If true (default), the cumulative profile-guess averages ("public figure")
-   * are tracked, displayed in the Nations panel, and the end-of-game accuracy
-   * bonus is applied. If false, none of that, just per-axis +1 each round.
-   */
-  publicFigures: boolean;
-  /** End-of-game bonus per matching axis. Only used when publicFigures is true. */
-  publicAccuracyBonus: number;
   /**
    * Polyglot cluster bonus: if all intended words are guessed correctly AND
    * languages.length > 1, group the words by language and award a triangular
@@ -212,10 +116,6 @@ export const DEFAULT_SETTINGS: RoomSettings = {
   initialBankSeconds: 180,
   maxBankSeconds: 240,
   pointsPerPlayer: 18,
-  profileAxes: DEFAULT_PROFILE_AXES,
-  profileMode: "binary",
-  publicFigures: true,
-  publicAccuracyBonus: 2,
   polyglotBonus: false,
   originalityBonus: false,
 };
@@ -227,7 +127,6 @@ export const SETTINGS_BOUNDS = {
   initialBankSeconds: { min: 5, max: 1800 },
   maxBankSeconds: { min: 5, max: 1800 },
   pointsPerPlayer: { min: 1, max: 50 },
-  publicAccuracyBonus: { min: 0, max: 10 },
 };
 
 export const CLUE_COUNT_MIN = 1;
@@ -241,12 +140,6 @@ export interface ScoreBreakdown {
   wordGuesser: number;
   /** Points from others guessing MY clue words correctly. */
   wordTarget: number;
-  /** Points from MY axis guesses of others' profiles. */
-  profileGuesser: number;
-  /** Points from others correctly guessing MY profile axes. */
-  profileTarget: number;
-  /** Public-accuracy bonus (awarded once at game end). */
-  accuracyBonus: number;
 }
 
 export interface PublicPlayer {
@@ -317,10 +210,6 @@ export interface PendingGuess {
 export interface PublicMe {
   clue: FullClue | null;
   guesses: { [targetId: string]: string[] };
-  /** My profile guesses this round, keyed by target playerId. */
-  profileGuesses: { [targetId: string]: number[] };
-  /** My own profile (always visible to me). */
-  profile: number[];
   /** Server-computed: what action this player owes next. Saves agents the bookkeeping. */
   owedAction: OwedAction;
   /** When `owedAction === "submit_guess"`, the opponent to guess for next (in submission order). */
@@ -331,37 +220,13 @@ export interface PublicMe {
   bankActiveSince: number | null;
 }
 
-export interface PublicNation {
+/** Per-player history shown in the clue-history panel. */
+export interface PublicClueHistory {
   playerId: string;
-  /** Real name of the player whose nation this is. */
+  /** Real name of the player. */
   name: string;
   /** All clue words this player has used so far in the game, in submission order. */
   clueHistory: string[];
-  /** Current public read on each axis: average across all opponents' most-recent guesses. null if no one has guessed yet. */
-  averageAxes: (number | null)[];
-  /** How many opponents contributed to the current averageAxes. */
-  guessSamples: number;
-  /** True if the round just resolved and we should show this player's solve count etc. */
-}
-
-export interface ProfileFeedback {
-  /** Per-target, per-axis correctness from the round that just resolved. */
-  hits: { [targetId: string]: boolean[] };
-}
-
-/** End-of-game accuracy summary for one player. */
-export interface ProfileAccuracy {
-  playerId: string;
-  /** Per-axis: was the rounded public figure equal to the true value? */
-  matches: boolean[];
-  /** The cumulative public figure (raw float) per axis. null = no guesses ever submitted for that target. */
-  rawPublic: (number | null)[];
-  /** Same value, rounded to nearest 1..5 (used for the bonus comparison). */
-  roundedPublic: (number | null)[];
-  /** True profile values (revealed at game end). */
-  truth: number[];
-  /** Total bonus this player earned (matches.filter(x=>x).length * publicAccuracyBonus). */
-  bonus: number;
 }
 
 export interface PublicRound {
@@ -392,14 +257,8 @@ export interface PublicState {
   round: PublicRound | null;
   /** Set when phase === "ended". */
   winnerId: string | null;
-  /** Per-player nation snapshot (clue history + average axes). Always present when phase !== lobby. */
-  nations: PublicNation[];
-  /** Reveal-only feedback for me on this round's profile guesses. */
-  profileFeedback: ProfileFeedback | null;
-  /** True profiles of every player. Only present at phase === "ended". */
-  trueProfiles?: { [playerId: string]: number[] };
-  /** End-of-game accuracy summary for every player. Only present at phase === "ended". */
-  accuracy?: ProfileAccuracy[];
+  /** Per-player clue-history snapshot. Always present once a round exists. */
+  clueHistories: PublicClueHistory[];
 }
 
 export interface JoinAck {
@@ -442,7 +301,7 @@ export interface ClientToServerEvents {
     cb: (ack: Ack<{ ok: true }>) => void,
   ) => void;
   "guess:submit": (
-    payload: { targetId: string; picks: string[]; axes: number[] },
+    payload: { targetId: string; picks: string[] },
     cb: (ack: Ack<{ ok: true }>) => void,
   ) => void;
   "round:next": (cb: (ack: Ack<{ ok: true }>) => void) => void;
