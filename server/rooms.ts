@@ -713,6 +713,13 @@ function tryResolveRound(room: Room): void {
   // Determine clue-submitters; each must guess for each other.
   const submitters = Array.from(round.clues.keys());
   if (submitters.length < 2) return;
+  // Don't resolve while any connected player still hasn't submitted a clue —
+  // otherwise fast players close out a round before slow ones get to play.
+  // Disconnected players are skipped so a rage-quit doesn't stall the room.
+  const connected = room.players.filter((p) => p.socketId !== null);
+  for (const p of connected) {
+    if (!round.clues.has(p.id)) return;
+  }
   for (const guesserId of submitters) {
     const inner = round.guesses.get(guesserId) ?? new Map();
     for (const targetId of submitters) {
