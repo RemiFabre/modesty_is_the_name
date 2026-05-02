@@ -968,3 +968,35 @@ select:focus {
   margin: 0 0.15em;
 }
 
+/* === Ended-screen round-history tabs === */
+
+.ended-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.ended-tab {
+  background: var(--bg-elev-2);
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  min-height: 36px;
+}
+
+.ended-tab-on {
+  background: var(--accent-2);
+  color: #08161b;
+  border-color: var(--accent-2);
+}
+

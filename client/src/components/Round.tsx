@@ -8,6 +8,7 @@ import {
   type PublicState,
 } from "../../../shared/types";
 import { ClueHistoryPanel } from "./ClueHistory";
+import { Standings } from "./Standings";
 import { getSocket } from "../socket";
 import { useNow } from "../useNow";
 import { WordPool } from "./WordPool";
@@ -175,8 +176,7 @@ function InstructionPrompt({ activity }: { activity: Activity }) {
           below. Pick between {CLUE_COUNT_MIN} and {CLUE_COUNT_MAX} words.
         </p>
         <p className="muted small">
-          Heads-up: every word any player picks here is removed from the pool
-          next round and replaced with a fresh one. Words no one targets stay.
+          Each round draws a fresh pool of words; nothing carries over.
         </p>
       </section>
     );
@@ -354,32 +354,6 @@ function WaitingPanel({
           );
         })}
       </ul>
-    </section>
-  );
-}
-
-function Standings({ state }: { state: PublicState }) {
-  const ranked = [...state.players].sort((a, b) => b.score - a.score);
-  return (
-    <section className="card subtle">
-      <h2>Standings</h2>
-      <p className="muted small">
-        Scores only update at the end of each round.
-      </p>
-      <ol className="rank">
-        {ranked.map((p, i) => (
-          <li
-            key={p.id}
-            className={p.id === state.myPlayerId ? "rank-me" : ""}
-          >
-            <span className="rank-pos">{i + 1}</span>
-            <span className="player-name">
-              {p.id === state.myPlayerId ? "You" : p.realName}
-            </span>
-            <span className="rank-score">{p.score}</span>
-          </li>
-        ))}
-      </ol>
     </section>
   );
 }

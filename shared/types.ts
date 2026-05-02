@@ -235,6 +235,29 @@ export interface PublicClueHistory {
   clueHistory: string[];
 }
 
+/** A snapshot of a resolved round, exposed to clients at game end so the
+ *  Ended screen can replay any past round. */
+export interface PublicRoundHistory {
+  number: number;
+  pool: string[];
+  poolLangs: { [word: string]: Language };
+  startedAt: number;
+  /** playerId → animal label assigned to them this round (not really used at
+   *  reveal-time since names go back to real, but kept for completeness). */
+  labels: { [playerId: string]: string };
+  /** playerId → that player's clue with intended set. */
+  clues: {
+    [playerId: string]: {
+      word: string;
+      count: number;
+      intended: string[];
+      submittedAt: number;
+    };
+  };
+  /** guesserId → targetId → picks. */
+  guesses: { [guesserId: string]: { [targetId: string]: string[] } };
+}
+
 export interface PublicRound {
   number: number;
   pool: string[];
@@ -265,6 +288,9 @@ export interface PublicState {
   winnerId: string | null;
   /** Per-player clue-history snapshot. Always present once a round exists. */
   clueHistories: PublicClueHistory[];
+  /** Snapshot of every resolved round, in order. Only present at phase === "ended"
+   *  so the Ended screen can replay any past round. */
+  history?: PublicRoundHistory[];
 }
 
 export interface JoinAck {

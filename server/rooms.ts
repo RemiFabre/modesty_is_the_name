@@ -15,6 +15,7 @@ import {
   type PendingGuess,
   type PublicClue,
   type PublicClueHistory,
+  type PublicRoundHistory,
   type PublicState,
   type RoomSettings,
   type ScoringMode,
@@ -403,60 +404,18 @@ function poolSize(room: Room): number {
   return room.settings.poolRows * room.settings.poolCols;
 }
 
-function newRound(
-  room: Room,
-  number: number,
-  pool?: string[],
-  poolLangs?: Record<string, Language>,
-): Round {
-  let resolvedPool = pool;
-  let resolvedLangs = poolLangs;
-  if (!resolvedPool || !resolvedLangs) {
-    const drawn = drawPool(room.settings.languages, poolSize(room));
-    resolvedPool = drawn.words;
-    resolvedLangs = drawn.langs;
-  }
+function newRound(room: Room, number: number): Round {
+  const drawn = drawPool(room.settings.languages, poolSize(room));
   return {
     number,
-    pool: resolvedPool,
-    poolLangs: resolvedLangs,
+    pool: drawn.words,
+    poolLangs: drawn.langs,
     startedAt: Date.now(),
     clues: new Map(),
     guesses: new Map(),
     guessStartedAt: new Map(),
     labels: assignLabels(room.players),
   };
-}
-
-/** Compute the next round's pool, preserving cell indices: each pool[i] is a stable
- *  spatial cell. Words that were targeted (in any clue's intended set) are replaced
- *  in-place with fresh draws; survivors keep their slot. */
-function carryPoolForward(
-  room: Room,
-  prev: Round,
-): { pool: string[]; poolLangs: Record<string, Language> } {
-  const targeted = new Set<string>();
-  for (const clue of prev.clues.values()) {
-    for (const w of clue.intended) targeted.add(w);
-  }
-  const need = prev.pool.filter((w) => targeted.has(w)).length;
-  // Build the lang map from survivors (preserving prior tags).
-  const langs: Record<string, Language> = {};
-  for (const w of prev.pool) {
-    if (!targeted.has(w) && prev.poolLangs[w]) langs[w] = prev.poolLangs[w];
-  }
-  if (need === 0) {
-    return { pool: [...prev.pool], poolLangs: langs };
-  }
-  // Exclude every word currently in the pool (survivors AND targeted) so we don't
-  // resurrect a word that was just clued or duplicate one that's still on the board.
-  const exclude = new Set(prev.pool);
-  const fresh = drawPool(room.settings.languages, need, exclude);
-  for (const w of fresh.words) langs[w] = fresh.langs[w];
-  // Slot fresh words into the cells whose previous word was targeted.
-  let f = 0;
-  const pool = prev.pool.map((w) => (targeted.has(w) ? fresh.words[f++] : w));
-  return { pool, poolLangs: langs };
 }
 
 export function submitClue(
@@ -668,9 +627,8 @@ export function nextRound(room: Room, player: Player): void {
   if (!player.isHost) throw new Error("Only the host can advance the round");
   if (room.phase !== "reveal") throw new Error("Round isn't over");
   const next = (room.round?.number ?? 0) + 1;
-  const carried = room.round ? carryPoolForward(room, room.round) : undefined;
   room.phase = "round";
-  room.round = newRound(room, next, carried?.pool, carried?.poolLangs);
+  room.round = newRound(room, next);
   for (const p of room.players) p.lastRoundDelta = 0;
   syncAllBankActivity(room, Date.now());
 }
@@ -809,6 +767,40 @@ export function viewFor(room: Room, playerId: string): PublicState {
     clueHistory: [...p.clueHistory],
   }));
 
+  // Full per-round replay data, only at game end.
+  const history: PublicRoundHistory[] | undefined =
+    room.phase === "ended"
+      ? room.history.map((r) => ({
+          number: r.number,
+          pool: [...r.pool],
+          poolLangs: { ...r.poolLangs } as PublicRoundHistory["poolLangs"],
+          startedAt: r.startedAt,
+          labels: { ...r.labels },
+          clues: Object.fromEntries(
+            Object.entries(r.clues).map(([id, c]) => [
+              id,
+              {
+                word: c.word,
+                count: c.count,
+                intended: [...c.intended],
+                submittedAt: c.submittedAt,
+              },
+            ]),
+          ),
+          guesses: Object.fromEntries(
+            Object.entries(r.guesses).map(([gId, perTarget]) => [
+              gId,
+              Object.fromEntries(
+                Object.entries(perTarget).map(([tId, picks]) => [
+                  tId,
+                  [...picks],
+                ]),
+              ),
+            ]),
+          ),
+        }))
+      : undefined;
+
   return {
     phase: room.phase,
     roomCode: room.code,
@@ -839,6 +831,7 @@ export function viewFor(room: Room, playerId: string): PublicState {
     round: publicRound,
     winnerId: room.winnerId,
     clueHistories,
+    history,
   };
 }
 

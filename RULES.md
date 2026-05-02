@@ -105,14 +105,9 @@ Like the **same-family clue word** rule, polyglot mode and the cluster bonus run
 
 The game is for friends and family, not strangers. If a competitive online mode is ever added, automatic detection and/or post-game voting will go in then.
 
-## Pool persistence
+## Pool refresh
 
-After a round resolves, the pool **partially carries over to the next round**:
-
-- Words that were in *anyone's* intended set this round are removed and replaced with fresh random words from the dictionary.
-- Words no one targeted **stay** in the pool. They're either uninteresting or genuinely hard.
-
-Over multiple rounds, the pool drifts toward harder, less-obvious words. This is by design.
+Every round draws a fresh pool of words; nothing carries over. Simpler to reason about, simpler to play.
 
 ---
 
@@ -147,7 +142,6 @@ A future addition will deal each player a small hand of **secret goal cards** at
 - **Clear cluing pays.** A clue that opponents can guess gets you word points. The strongest players are *legible*, not cryptic.
 - **Precision mode rewards confidence.** A perfect 7-word clue is +28 in Precision. A miss is 0. Don't go big unless you have a clean read.
 - **Anonymous labels reshuffle every round.** "Wolf" is a different real player each round. The accumulated clue history (in the Clue-history panel) is by real name, but any player who pays attention can correlate.
-- **The pool drifts.** Targeted words leave; un-targeted ones stay. Late rounds tend to have weirder, harder words because the easy ones get cleared early.
 
 ---
 
