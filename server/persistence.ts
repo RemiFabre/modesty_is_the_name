@@ -119,6 +119,14 @@ export interface PersistResult {
   elo: EloUpdate[];
 }
 
+/** Persist a finished game's log + ELO update.
+ *
+ *  Concurrency note: this function and updateEloForGame both use synchronous
+ *  fs operations (readFileSync, writeFileSync). Node is single-threaded and
+ *  cannot interleave sync ops, so two simultaneous game-end events cannot
+ *  race the elo.json read-modify-write — each call completes atomically
+ *  within a single event loop tick. If we ever switch to async fs, an
+ *  external store, or multi-process scaling, wrap this in a serial queue. */
 export function persistGame(room: Room): PersistResult | null {
   try {
     ensureDirs();

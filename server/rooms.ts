@@ -110,7 +110,18 @@ export interface Room {
   createdAt: number;
   /** Snapshot of every resolved round, in order. Used for game-log persistence. */
   history: RoundLog[];
+  /** Wall-clock when this room had zero connected players, or null if it currently has any.
+   *  Drives the idle-room sweeper. */
+  emptySince: number | null;
+  /** Wall-clock when this room dropped to ≤ 1 connected players, or null if it has 2+.
+   *  Drives the longer "abandoned game" sweep. */
+  loneSince: number | null;
 }
+
+/** A room with zero connected players for this many ms gets swept. */
+export const EMPTY_ROOM_TTL_MS = 5 * 60_000;
+/** A room with ≤ 1 connected players for this many ms gets swept. */
+export const LONE_ROOM_TTL_MS = 60 * 60_000;
 
 const rooms = new Map<string, Room>();
 
@@ -285,6 +296,7 @@ export function createRoom(
   let code = makeRoomCode();
   while (rooms.has(code)) code = makeRoomCode();
   const host = makePlayer(hostName, true, settings.initialBankSeconds);
+  const now = Date.now();
   const room: Room = {
     code,
     settings,
@@ -293,8 +305,12 @@ export function createRoom(
     phase: "lobby",
     round: null,
     winnerId: null,
-    createdAt: Date.now(),
+    createdAt: now,
     history: [],
+    // Until the host's socket attaches, the room has 0 connected players.
+    // attachSocket is called immediately after createRoom, which clears this.
+    emptySince: now,
+    loneSince: now,
   };
   rooms.set(code, room);
   return { room, player: host };
@@ -313,6 +329,7 @@ export function joinRoom(
     const existing = room.players.find((p) => p.sessionToken === sessionToken);
     if (existing) {
       existing.socketId = socketId;
+      updateRoomActivity(room);
       return { room, player: existing };
     }
   }
@@ -326,7 +343,27 @@ export function joinRoom(
   const player = makePlayer(name, false, room.settings.initialBankSeconds);
   player.socketId = socketId;
   room.players.push(player);
+  updateRoomActivity(room);
   return { room, player };
+}
+
+/** Recompute emptySince/loneSince from the current connected count. Idempotent. */
+function updateRoomActivity(room: Room): void {
+  const count = room.players.reduce(
+    (n, p) => n + (p.socketId !== null ? 1 : 0),
+    0,
+  );
+  const now = Date.now();
+  if (count === 0) {
+    if (room.emptySince === null) room.emptySince = now;
+    if (room.loneSince === null) room.loneSince = now;
+  } else if (count === 1) {
+    room.emptySince = null;
+    if (room.loneSince === null) room.loneSince = now;
+  } else {
+    room.emptySince = null;
+    room.loneSince = null;
+  }
 }
 
 export function setSettings(
@@ -635,6 +672,7 @@ export function nextRound(room: Room, player: Player): void {
 
 export function attachSocket(room: Room, player: Player, socketId: string): void {
   player.socketId = socketId;
+  updateRoomActivity(room);
 }
 
 export function detachSocket(socketId: string): Room | undefined {
@@ -642,10 +680,39 @@ export function detachSocket(socketId: string): Room | undefined {
     const player = room.players.find((p) => p.socketId === socketId);
     if (player) {
       player.socketId = null;
+      updateRoomActivity(room);
       return room;
     }
   }
   return undefined;
+}
+
+export interface SweepResult {
+  /** Room codes that were just deleted. */
+  deletedRooms: string[];
+  /** Socket IDs that were attached to deleted rooms (the server should
+   *  emit a friendly error and disconnect each one). */
+  evictedSocketIds: string[];
+}
+
+/** Delete rooms that have been empty for too long (EMPTY_ROOM_TTL_MS) or
+ *  near-empty for too long (LONE_ROOM_TTL_MS). Idempotent. */
+export function sweepStaleRooms(): SweepResult {
+  const now = Date.now();
+  const deletedRooms: string[] = [];
+  const evictedSocketIds: string[] = [];
+  for (const [code, room] of rooms.entries()) {
+    const dead =
+      (room.emptySince !== null && now - room.emptySince > EMPTY_ROOM_TTL_MS) ||
+      (room.loneSince !== null && now - room.loneSince > LONE_ROOM_TTL_MS);
+    if (!dead) continue;
+    for (const p of room.players) {
+      if (p.socketId !== null) evictedSocketIds.push(p.socketId);
+    }
+    rooms.delete(code);
+    deletedRooms.push(code);
+  }
+  return { deletedRooms, evictedSocketIds };
 }
 
 export function viewFor(room: Room, playerId: string): PublicState {
