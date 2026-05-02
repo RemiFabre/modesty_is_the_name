@@ -140,7 +140,6 @@ function RoundReplay({
     <>
       <section className="card subtle">
         <h2>Round {history.number}</h2>
-        <p className="muted small">Replaying clues, intended sets, and guesses.</p>
       </section>
 
       {myClue && (

@@ -51,11 +51,11 @@ export function ClueResultCard({
           for (const p of picks) if (intendedSet.has(p)) hits++;
           const misses = picks.length - hits;
           const delta = hits - misses;
+          const pickedSet = new Set(picks);
+          const missed = (clue.intended ?? []).filter((w) => !pickedSet.has(w));
           return (
             <li key={g.id} className="reveal-row">
-              <span className="player-name">
-                {g.id === myPlayerId ? "You" : g.realName}
-              </span>
+              <span className="player-name">{g.realName}</span>
               <span className="reveal-picks">
                 {picks.map((p) => (
                   <span
@@ -67,6 +67,11 @@ export function ClueResultCard({
                     {p}
                   </span>
                 ))}
+                {missed.length > 0 && (
+                  <span className="reveal-missed">
+                    missed: <em>{missed.join(", ")}</em>
+                  </span>
+                )}
               </span>
               <span className={"delta " + (delta >= 0 ? "good" : "bad")}>
                 {delta >= 0 ? `+${delta}` : delta}

@@ -16,9 +16,7 @@ export function Standings({ state }: { state: PublicState }) {
             className={p.id === state.myPlayerId ? "rank-me" : ""}
           >
             <span className="rank-pos">{i + 1}</span>
-            <span className="player-name">
-              {p.id === state.myPlayerId ? "You" : p.realName}
-            </span>
+            <span className="player-name">{p.realName}</span>
             <span className="rank-score">{p.score}</span>
           </li>
         ))}

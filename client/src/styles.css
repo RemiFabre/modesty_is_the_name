@@ -628,6 +628,18 @@ select:focus {
   margin: 0 0.4rem 0 auto;
 }
 
+.reveal-missed {
+  flex-basis: 100%;
+  font-size: 0.78rem;
+  color: var(--fg-dim);
+  margin-top: 0.15rem;
+}
+
+.reveal-missed em {
+  color: var(--fg);
+  font-style: italic;
+}
+
 .tag {
   font-size: 0.75rem;
   padding: 0.15rem 0.5rem;

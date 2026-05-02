@@ -10,11 +10,10 @@ export function ClueHistoryPanel({ state }: { state: PublicState }) {
       <p className="muted small">What each player has clued so far.</p>
       <ul className="clue-histories">
         {histories.map((h) => {
-          const isMe = h.playerId === state.myPlayerId;
           return (
             <li key={h.playerId} className="clue-history">
               <div className="clue-history-head">
-                <strong>{isMe ? `${h.name} (you)` : h.name}</strong>
+                <strong>{h.name}</strong>
               </div>
               <div className="clue-history-words">
                 {h.clueHistory.length === 0 ? (

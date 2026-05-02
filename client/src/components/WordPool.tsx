@@ -1,3 +1,5 @@
+import { AutoFitText } from "./AutoFitText";
+
 export interface WordPoolProps {
   words: readonly string[];
   /** Number of columns in the spatial grid. The pool is rendered row-major. */
@@ -44,7 +46,7 @@ export function WordPool({
             onClick={() => interactive && onToggle?.(w)}
             disabled={!interactive}
           >
-            {w}
+            <AutoFitText>{w}</AutoFitText>
           </button>
         );
       })}
